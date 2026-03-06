@@ -21,7 +21,7 @@ return new class extends Migration
 
             $table->float('radiacao_w_m2');
 
-            $table->unique(['distrito_id','timestamp']);
+            $table->primary(['distrito_id','timestamp']);
 
         });
     }

@@ -9,7 +9,8 @@ class RadiacaoSolar extends Model
     protected $table = 'radiacao_solar';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

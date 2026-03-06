@@ -10,6 +10,10 @@ class TemperaturaRegistrada extends Model
 
     public $timestamps = false;
 
+    // IMPORTANTE
+    public $incrementing = false;
+    protected $primaryKey = null;
+
     protected $fillable = [
         'distrito_id',
         'timestamp',
@@ -18,9 +22,9 @@ class TemperaturaRegistrada extends Model
     ];
 
     protected $casts = [
-        'timestamp'=>'datetime',
-        'temperatura'=>'float',
-        'sensacao_termica'=>'float'
+        'timestamp' => 'datetime',
+        'temperatura' => 'float',
+        'sensacao_termica' => 'float'
     ];
 
     public function distrito()

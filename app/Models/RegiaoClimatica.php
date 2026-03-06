@@ -8,6 +8,7 @@ class RegiaoClimatica extends Model
 {
     protected $table = 'regioes_climaticas';
 
+
     protected $fillable = [
         'nome'
     ];

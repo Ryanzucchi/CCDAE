@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('regiao_climatica_id')
-                ->constrained()
+                ->constrained('regioes_climaticas')
                 ->cascadeOnDelete();
 
             $table->foreignId('distrito_id')

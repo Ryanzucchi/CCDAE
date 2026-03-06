@@ -9,7 +9,8 @@ class PressaoAtmosferica extends Model
     protected $table = 'pressao_atmosferica';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

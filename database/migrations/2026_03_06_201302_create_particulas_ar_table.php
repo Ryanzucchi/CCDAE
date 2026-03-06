@@ -25,7 +25,7 @@ return new class extends Migration
             $table->float('areia')->nullable();
             $table->float('poluentes')->nullable();
 
-            $table->unique(['distrito_id','timestamp']);
+            $table->primary(['distrito_id','timestamp']);
 
         });
     }

@@ -9,7 +9,8 @@ class ParticulaAr extends Model
     protected $table = 'particulas_ar';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

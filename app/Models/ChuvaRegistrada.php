@@ -9,7 +9,8 @@ class ChuvaRegistrada extends Model
     protected $table = 'chuva_registrada';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

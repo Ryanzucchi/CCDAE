@@ -9,7 +9,8 @@ class VentoRegistrado extends Model
     protected $table = 'vento_registrado';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

@@ -9,7 +9,8 @@ class IndiceUV extends Model
     protected $table = 'indice_uv';
 
     public $timestamps = false;
-
+    public $incrementing = false;
+    protected $primaryKey = null;
     protected $fillable = [
         'distrito_id',
         'timestamp',

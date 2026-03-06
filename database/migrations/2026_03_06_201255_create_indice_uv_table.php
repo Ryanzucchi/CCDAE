@@ -21,7 +21,7 @@ return new class extends Migration
 
             $table->float('uv');
 
-            $table->unique(['distrito_id','timestamp']);
+            $table->primary(['distrito_id','timestamp']);
 
         });
     }

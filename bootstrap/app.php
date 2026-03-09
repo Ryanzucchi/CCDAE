@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Jobs\CollectClimateData;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -10,10 +11,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web();
+    })
+
     ->withSchedule(function ($schedule) {
-        $schedule->job(new \App\Jobs\CollectClimateData)
+        $schedule->job(new CollectClimateData)
             ->everyMinute();
     })
+
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+    ->create();

@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Distrito;
-use App\Services\Climate\ClimateApiService;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Carbon\Carbon;
@@ -14,57 +14,57 @@ class CollectClimateData implements ShouldQueue
 {
     use Queueable;
 
-    public function handle(ClimateApiService $service): void
+    public function handle(): void
     {
-        Log::info("Job iniciado");
+        Log::info("Job de alta performance iniciado");
 
-        $distritos = Distrito::all();
+        // Processamos em pedaços (chunks) de 50 para respeitar o limite da API Open-Meteo
+        Distrito::chunk(50, function ($distritos) {
+            $this->processBatch($distritos);
+        });
+    }
 
-        Log::info("Distritos encontrados: ".$distritos->count());
+    protected function processBatch($distritos)
+    {
+        $lats = $distritos->pluck('latitude')->implode(',');
+        $lons = $distritos->pluck('longitude')->implode(',');
 
-        $dados = [];
+        try {
+            $response = Http::timeout(15)->get("https://api.open-meteo.com/v1/forecast", [
+                'latitude' => $lats,
+                'longitude' => $lons,
+                'current_weather' => true,
+            ]);
 
-        foreach ($distritos as $distrito) {
+            if ($response->failed()) return;
 
-            try {
+            $data = $response->json();
+            $dadosParaInserir = [];
 
-                $data = $service->getCurrentWeather(
-                    $distrito->latitude,
-                    $distrito->longitude
-                );
+            // A API retorna um array de resultados quando enviamos múltiplas latitudes
+            foreach ($data as $index => $result) {
+                if (isset($result['current_weather'])) {
+                    $current = $result['current_weather'];
+                    $distrito = $distritos[$index];
 
-                if (!isset($data['current_weather'])) {
-                    continue;
+                    $dadosParaInserir[] = [
+                        'distrito_id' => $distrito->id,
+                        'timestamp' => Carbon::parse($current['time']),
+                        'temperatura' => $current['temperature'],
+                    ];
                 }
-
-                $current = $data['current_weather'];
-
-                $dados[] = [
-                    'distrito_id' => $distrito->id,
-                    'timestamp' => Carbon::parse($current['time']),
-                    'temperatura' => $current['temperature']
-                ];
-
-            } catch (\Throwable $e) {
-
-                Log::error("Erro ao coletar clima do distrito ".$distrito->id, [
-                    'erro' => $e->getMessage()
-                ]);
-
             }
 
+            if (!empty($dadosParaInserir)) {
+                DB::table('temperatura_registrada')->upsert(
+                    $dadosParaInserir,
+                    ['distrito_id', 'timestamp'],
+                    ['temperatura']
+                );
+            }
+
+        } catch (\Throwable $e) {
+            Log::error("Falha no lote de distritos", ['erro' => $e->getMessage()]);
         }
-
-        if (count($dados) > 0) {
-
-            DB::table('temperatura_registrada')->upsert(
-                $dados,
-                ['distrito_id','timestamp'],
-                ['temperatura']
-            );
-
-            Log::info("Registros inseridos: ".count($dados));
-        }
-
     }
 }

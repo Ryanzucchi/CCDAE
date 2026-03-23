@@ -3,36 +3,32 @@
 namespace App\Jobs;
 
 use App\Models\Distrito;
-use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
-class CollectClimateData implements ShouldQueue
+class ProcessLoteClima implements ShouldQueue
 {
-    use Queueable;
+    use Batchable, Queueable;
+
+    public array $distritosIds;
+
+    public function __construct(array $distritosIds)
+    {
+        $this->distritosIds = $distritosIds;
+    }
 
     public function handle(): void
     {
-        // Pega todos os IDs e divide em pedaços de 50
-        $chunks = Distrito::pluck('id')->chunk(50);
-        $jobs = [];
-
-        foreach ($chunks as $chunk) {
-            $jobs[] = new ProcessLoteClima($chunk->toArray());
+        if ($this->batch()->cancelled()) {
+            return;
         }
 
-        // Cria o Batch e envia para a fila
-        Bus::batch($jobs)
-            ->name('Sincronização Climática de Cáceres')
-            ->dispatch();
-    }
-
-    protected function processBatch($distritos)
-    {
+        $distritos = Distrito::whereIn('id', $this->distritosIds)->get();
         $lats = $distritos->pluck('latitude')->implode(',');
         $lons = $distritos->pluck('longitude')->implode(',');
 
@@ -48,16 +44,13 @@ class CollectClimateData implements ShouldQueue
             $data = $response->json();
             $dadosParaInserir = [];
 
-            // A API retorna um array de resultados quando enviamos múltiplas latitudes
+            // A Open-Meteo retorna os resultados num array quando se envia múltiplas coordenadas
             foreach ($data as $index => $result) {
                 if (isset($result['current_weather'])) {
-                    $current = $result['current_weather'];
-                    $distrito = $distritos[$index];
-
                     $dadosParaInserir[] = [
-                        'distrito_id' => $distrito->id,
-                        'timestamp' => Carbon::parse($current['time']),
-                        'temperatura' => $current['temperature'],
+                        'distrito_id' => $distritos[$index]->id,
+                        'timestamp' => Carbon::parse($result['current_weather']['time']),
+                        'temperatura' => $result['current_weather']['temperature'],
                     ];
                 }
             }
@@ -71,7 +64,8 @@ class CollectClimateData implements ShouldQueue
             }
 
         } catch (\Throwable $e) {
-            Log::error("Falha no lote de distritos", ['erro' => $e->getMessage()]);
+            Log::error("Erro no lote", ['erro' => $e->getMessage()]);
+            // Opcional: $this->fail($e); se quiser que o lote marque falha
         }
     }
 }

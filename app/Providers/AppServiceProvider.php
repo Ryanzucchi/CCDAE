@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Cache;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -19,6 +22,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Queue::looping(function () {
+            Cache::put('queue_worker_last_seen', now()->timestamp, 300);
+        });
+
+        Queue::before(function () {
+            Cache::put('queue_worker_last_seen', now()->timestamp, 300);
+        });
+
+        Queue::after(function () {
+            Cache::put('queue_worker_last_seen', now()->timestamp, 300);
+        });
     }
 }

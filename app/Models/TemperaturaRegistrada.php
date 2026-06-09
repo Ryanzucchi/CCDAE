@@ -21,6 +21,15 @@ class TemperaturaRegistrada extends Model
     public $incrementing = false;
     protected $primaryKey = null;
 
+    public function getKey()
+    {
+        $timestamp = $this->timestamp;
+        if ($timestamp instanceof \DateTimeInterface) {
+            $timestamp = $timestamp->format('Y-m-d_H:i:s');
+        }
+        return "{$this->distrito_id}_{$timestamp}";
+    }
+
     protected $fillable = [
         'distrito_id',
         'timestamp',

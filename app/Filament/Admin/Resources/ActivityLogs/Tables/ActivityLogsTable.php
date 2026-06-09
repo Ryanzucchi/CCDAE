@@ -21,20 +21,27 @@ class ActivityLogsTable
                     ->sortable()
                     ->description(fn ($record) => $record->created_at->format('d/m/Y')),
 
+                TextColumn::make('log_name')
+                    ->label('Canal/Log')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state === 'default' ? 'Geral' : $state)
+                    ->color('gray')
+                    ->searchable(),
+
                 TextColumn::make('description')
                     ->label('Evento')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'created' => 'success',
-                        'updated' => 'info', // 'warning' também é uma ótima opção
+                        'updated' => 'info',
                         'deleted' => 'danger',
-                        default => 'gray',
+                        default => 'warning',
                     })
                     ->searchable(),
 
                 TextColumn::make('subject_type')
                     ->label('Tabela/Model')
-                    ->formatStateUsing(fn ($state) => str_replace('App\Models\\', '', $state))
+                    ->formatStateUsing(fn ($state) => $state ? str_replace('App\Models\\', '', $state) : 'Sistema/Global')
                     ->searchable(),
 
                 TextColumn::make('subject_id')
@@ -44,7 +51,7 @@ class ActivityLogsTable
                 TextColumn::make('causer.name')
                     ->label('Usuário')
                     ->default('Sistema')
-                    ->searchable(),
+                    ->description(fn ($record) => $record->causer_type ? str_replace('App\Models\\', '', $record->causer_type) : 'Tarefa de Background'),
             ])
             ->defaultSort('created_at', 'desc')
             ->poll('2s') // Removida a vírgula extra aqui

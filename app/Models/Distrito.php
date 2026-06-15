@@ -19,12 +19,14 @@ class Distrito extends Model
         'nome',
         'latitude',
         'longitude',
-        'cidade'
+        'cidade',
+        'geojson',
     ];
 
     protected $casts = [
-        'latitude' => 'float',
-        'longitude' => 'float'
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+        'geojson' => 'array',
     ];
 
     public function estacoes()

@@ -28,16 +28,23 @@ class SystemHealth extends Page implements HasTable
     {
         return [
             \App\Filament\Admin\Widgets\SystemHealthStats::class,
+            \App\Filament\Admin\Widgets\DataCollectionChart::class,
         ];
     }
 
     public function startQueueWorker()
     {
+        $base = base_path();
+        $log = storage_path('logs/queue-worker.log');
+        $cmd = "nohup php {$base}/artisan queue:work > {$log} 2>&1 & echo $!";
+        
         if (function_exists('shell_exec')) {
-            shell_exec('php artisan queue:work > ' . storage_path('logs/queue-worker.log') . ' 2>&1 &');
+            shell_exec($cmd);
         } else {
-            @exec('php artisan queue:work > ' . storage_path('logs/queue-worker.log') . ' 2>&1 &');
+            @exec($cmd);
         }
+        
+        Cache::put('queue_worker_last_seen', now()->timestamp, 300);
         
         Notification::make()
             ->title('Queue worker iniciado em segundo plano!')
@@ -47,27 +54,11 @@ class SystemHealth extends Page implements HasTable
 
     public function stopQueueWorker()
     {
-        $pids = [];
-        foreach (glob('/proc/[0-9]*/cmdline') as $f) {
-            $c = @file_get_contents($f);
-            if (str_contains($c, 'queue:work') && !str_contains($c, 'tinker') && !str_contains($c, 'SystemHealth')) {
-                preg_match('/\/proc\/([0-9]+)\/cmdline/', $f, $matches);
-                if (isset($matches[1])) {
-                    $pids[] = (int)$matches[1];
-                }
-            }
-        }
-        foreach ($pids as $pid) {
-            if (function_exists('posix_kill')) {
-                posix_kill($pid, 15);
-            } else {
-                @shell_exec("kill -15 {$pid}");
-            }
-        }
+        \Illuminate\Support\Facades\Artisan::call('queue:restart');
         Cache::forget('queue_worker_last_seen');
         
         Notification::make()
-            ->title('Queue worker parado!')
+            ->title('Sinal de parada enviado ao Worker!')
             ->warning()
             ->send();
     }
@@ -117,15 +108,19 @@ class SystemHealth extends Page implements HasTable
         $lastSeen = Cache::get('queue_worker_last_seen');
         $isWorkerRunning = false;
         $workerStatusText = 'Inativo';
+        $bottlenecks = [];
         
         if ($lastSeen !== null) {
             $diff = now()->timestamp - $lastSeen;
-            if ($diff <= 120) {
+            if ($diff <= 600) {
                 $isWorkerRunning = true;
                 $workerStatusText = "Ativo (último sinal: há {$diff}s)";
             } else {
                 $workerStatusText = "Inativo (último sinal: há {$diff}s)";
+                $bottlenecks[] = ['type' => 'danger', 'msg' => 'Worker inativo ou atrasado! Último sinal de vida foi há mais de 2 minutos. O sistema parou de coletar clima.'];
             }
+        } else {
+            $bottlenecks[] = ['type' => 'danger', 'msg' => 'Nenhum sinal do Queue Worker. Ele não foi iniciado ou caiu.'];
         }
 
         $lastJob = DB::table('activity_log')
@@ -133,15 +128,37 @@ class SystemHealth extends Page implements HasTable
             ->latest('id')
             ->first();
 
-        // System information
+        // Database and System Information
         $dbVersion = 'Desconhecido';
+        $dbSize = 'Desconhecido';
+        $dbLatency = 0;
         try {
-            $dbVersion = DB::connection()->getPdo()->getAttribute(\PDO::ATTR_SERVER_VERSION);
-        } catch (\Exception $e) {}
+            $pdo = DB::connection()->getPdo();
+            $dbVersion = $pdo->getAttribute(\PDO::ATTR_SERVER_VERSION);
+            
+            $startPing = microtime(true);
+            DB::select('SELECT 1');
+            $dbLatency = round((microtime(true) - $startPing) * 1000, 2);
+
+            $sizeQuery = DB::select("SELECT pg_size_pretty(pg_database_size(current_database())) as size");
+            if (!empty($sizeQuery)) {
+                $dbSize = $sizeQuery[0]->size;
+            }
+        } catch (\Exception $e) {
+            $bottlenecks[] = ['type' => 'danger', 'msg' => 'Erro ao conectar com o Banco de Dados.'];
+        }
+
+        if ($dbLatency > 150) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => "Latência alta do Banco de Dados ({$dbLatency}ms)."];
+        }
 
         $load = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
         $loadText = $load ? implode(', ', array_map(fn($n) => number_format($n, 2), $load)) : 'N/A';
+        if ($load && $load[0] > 4.0) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => "Sobrecarga de CPU: Load Average 1min está em {$load[0]}."];
+        }
 
+        // Memory Usage
         $usedBytes = memory_get_usage(true);
         $phpMemory = number_format($usedBytes / 1024 / 1024, 2) . ' MB';
         $phpLimit = ini_get('memory_limit');
@@ -160,11 +177,45 @@ class SystemHealth extends Page implements HasTable
         }
         $memoryPercent = $limitBytes > 0 ? round(($usedBytes / $limitBytes) * 100, 1) : 0;
 
+        if ($memoryPercent > 80) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => "Uso crítico de memória PHP ({$memoryPercent}%)."];
+        }
+
+        // Disk Usage
+        $diskFree = @disk_free_space('/');
+        $diskTotal = @disk_total_space('/');
+        $diskUsedPercent = 0;
+        $diskFreeStr = 'N/A';
+        $diskTotalStr = 'N/A';
+        if ($diskFree !== false && $diskTotal !== false && $diskTotal > 0) {
+            $diskUsedPercent = round((($diskTotal - $diskFree) / $diskTotal) * 100, 1);
+            $diskFreeStr = number_format($diskFree / 1024 / 1024 / 1024, 2) . ' GB';
+            $diskTotalStr = number_format($diskTotal / 1024 / 1024 / 1024, 2) . ' GB';
+            if ($diskUsedPercent > 85) {
+                $bottlenecks[] = ['type' => 'warning', 'msg' => "Espaço em disco com uso acima de 85% ({$diskUsedPercent}% utilizado)."];
+            }
+        }
+
+        // Queue Backlog
+        $failedJobs = DB::table('failed_jobs')->count();
+        if ($failedJobs > 0) {
+            $bottlenecks[] = ['type' => 'danger', 'msg' => "Existem {$failedJobs} jobs falhados na fila!"];
+        }
+
+        $pendingJobs = DB::table('jobs')->count();
+        if ($pendingJobs > 50) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => "Gargalo na fila: {$pendingJobs} jobs aguardando processamento."];
+        }
+
         // Last Climate data record
         $lastClimateRecord = DB::table('temperatura_registrada')->latest('timestamp')->value('timestamp');
         $lastClimateRecordText = $lastClimateRecord 
             ? \Carbon\Carbon::parse($lastClimateRecord)->format('d/m/Y H:i') . ' (' . \Carbon\Carbon::parse($lastClimateRecord)->diffForHumans() . ')'
             : 'Nenhum registro encontrado';
+
+        if ($lastClimateRecord && \Carbon\Carbon::parse($lastClimateRecord)->diffInHours(now()) > 2) {
+            $bottlenecks[] = ['type' => 'danger', 'msg' => 'Falta de dados de clima! Último registro foi há mais de 2 horas.'];
+        }
 
         // Worker Log Output
         $logPath = storage_path('logs/queue-worker.log');
@@ -182,13 +233,19 @@ class SystemHealth extends Page implements HasTable
                 'worker_status_text' => $workerStatusText,
                 'last_job' => $lastJob,
                 'db_version' => $dbVersion,
+                'db_size' => $dbSize,
+                'db_latency' => $dbLatency,
                 'system_load' => $loadText,
                 'php_memory' => $phpMemory,
                 'php_limit' => $phpLimit,
                 'php_memory_percent' => $memoryPercent,
+                'disk_free' => $diskFreeStr,
+                'disk_total' => $diskTotalStr,
+                'disk_used_percent' => $diskUsedPercent,
                 'last_climate_record' => $lastClimateRecordText,
                 'worker_logs' => $workerLogs,
                 'queue_driver' => config('queue.default'),
+                'bottlenecks' => $bottlenecks,
             ],
         ];
     }

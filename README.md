@@ -1,15 +1,31 @@
 <div align="center">
   <img src="https://laravel.com/img/logomark.min.svg" alt="Laravel Logo" width="100">
-  <img src="https://raw.githubusercontent.com/filamentphp/filament/3.x/art/logo.svg" alt="Filament Logo" width="100" style="margin-left: 20px;">
   
   # CCDAE - Centro de Coleta de Dados Ambientais e Espaciais
   
-  **Plataforma de Monitoramento Climático e Análise Geoespacial com IoT**
+  **Plataforma de Gestão Urbana e Manutenibilidade de Infraestruturas**
 </div>
 
 ---
 
-O **CCDAE** é uma plataforma avançada construída para coleta, processamento de alta performance e visualização interativa de dados meteorológicos e ambientais coletados via sensores IoT. O sistema oferece monitoramento em tempo real de distritos urbanos e painéis analíticos para acompanhamento de métricas climáticas vitais.
+O **CCDAE** possui um objetivo central muito claro: **Prover visualização avançada de atributos geoespaciais e análise de dados para garantir a melhoria contínua e a manutenibilidade de infraestruturas urbanas vitais** (como energia, internet e telefonia). 
+
+Através da convergência entre IoT, análise temporal e mapeamento georreferenciado, a plataforma permite a identificação proativa de falhas, análise de desgaste e mitigação de riscos estruturais nas cidades.
+
+## 🗺️ Roadmap e Módulos do Sistema
+
+O projeto é concebido em formato modular, garantindo expansão contínua para abranger todos os aspectos da infraestrutura urbana:
+
+- [x] **Módulo de Clima**: Monitoramento de alta frequência de variáveis climáticas via IoT (Temperatura, Chuvas, Raios UV, Pressão, Radiação e Partículas de Ar). *(Concluído)*
+- [ ] **Módulo de Distritos**: Gestão territorial inteligente com geração dinâmica de fronteiras via Diagramas de Voronoi e renderização de alta performance. *(Em andamento)*
+- [ ] **Mapeamento de Infraestrutura**: Cadastro e visualização espacial de postes, antenas, centrais de distribuição e cabeamentos. *(Em breve)*
+- [ ] **Mapeamento de Desgaste**: Análise analítica e visual do estado de conservação física dos ativos mapeados. *(Em breve)*
+- [ ] **Mapeamento de Fios**: Rastreamento da teia de cabeamentos ópticos e elétricos cruzando os distritos. *(Em breve)*
+- [ ] **Mapeamento de Trânsito**: Integração com fluxos viários para entender impactos logísticos e gargalos de manutenção. *(Em breve)*
+- [ ] **Sugestões de Melhorias**: Sistema automatizado (ou manual) para propor *upgrades* estruturais baseado na inteligência dos dados coletados. *(Em breve)*
+- [ ] **Risco por Envelhecimento**: Previsão de falhas baseada em algoritmos preditivos sobre a vida útil e exposição climática da infraestrutura. *(Em breve)*
+
+---
 
 ## 🚀 Arquitetura e Tecnologias
 

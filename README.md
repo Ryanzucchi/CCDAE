@@ -52,9 +52,18 @@ A aplicação utiliza uma stack moderna focada em escalabilidade para grande vol
 
 A arquitetura de banco de dados do CCDAE divide-se em metadados geográficos e tabelas de alta frequência (IoT):
 
-### Entidades Espaciais
-- `Distrito`: Guarda informações geográficas (latitude, longitude, geojson).
-- `RegiaoClimatica`, `EstacaoMeteorologica`: Estruturas de organização física.
+### Entidades Espaciais (Arquitetura do Modelo)
+
+#### 📍 Distrito
+O modelo central da gestão territorial inteligente. Sua arquitetura atual é composta por:
+- **Atributos Principais**: `nome`, `cidade`, `latitude`, `longitude` (decimais com precisão 7) e `geojson` (armazenado e castado dinamicamente como `array` para fácil manipulação e serialização).
+- **Auditoria e Rastreabilidade**: Implementa o trait `LogsActivity` do pacote Spatie para registrar automaticamente um log imutável de todas as modificações no banco de dados, crucial para governança urbana.
+- **Filament Admin & MapPicker**: A interface de administração (`DistritoResource`) é equipada com o **Dotswan MapPicker**. Isso permite que os gestores não apenas cliquem para definir as coordenadas centrais, mas também ativem o modo de desenho (via biblioteca **GeoMan** acoplada) para delinear e editar fronteiras poligonais diretamente no mapa. O shape gerado é convertido automaticamente em `geojson` e hidratado no formulário.
+- **Relações (1:N)**: É o nó raiz de diversas captações de IoT. Um distrito `hasMany`: `estacoes`, `temperaturas`, `ventos`, `chuvas`, `pressoes`, `radiacoes`, `uv`, `particulas` e `eventos` climáticos.
+- **Relações (N:N)**: Estabelece ligação `belongsToMany` com `RegiaoClimatica`, abrindo margem para interseções de biomas ou macro-regiões climáticas.
+
+#### Outras Estruturas
+- `RegiaoClimatica`, `EstacaoMeteorologica`: Estruturas de organização física complementares.
 
 ### Telemetria (Time-Series)
 O sistema capta "1 payload de coleta que salva em 7 tabelas simultaneamente". Cada grandeza possui sua tabela otimizada:

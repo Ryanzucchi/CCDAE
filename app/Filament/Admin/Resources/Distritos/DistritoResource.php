@@ -34,7 +34,7 @@ class DistritoResource extends Resource
                         ->required()
                         ->label('Cidade')
                         ->live(debounce: 1000)
-                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                        ->afterStateUpdated(function ($state, callable $set, callable $get, \Livewire\Component $livewire) {
                             if ($state) {
                                 try {
                                     $response = \Illuminate\Support\Facades\Http::withHeaders([
@@ -50,6 +50,7 @@ class DistritoResource extends Resource
                                         $loc['lat'] = (float)$data['lat'];
                                         $loc['lng'] = (float)$data['lon'];
                                         $set('location', $loc);
+                                        $livewire->dispatch('refreshMap');
                                     }
                                 } catch (\Exception $e) {}
                             }

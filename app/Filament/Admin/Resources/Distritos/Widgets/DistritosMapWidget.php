@@ -13,9 +13,7 @@ class DistritosMapWidget extends Widget
 
     public function getDistritos(): array
     {
-        return Distrito::whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->get(['id', 'nome', 'cidade', 'latitude', 'longitude'])
+        return Distrito::get(['id', 'nome', 'cidade', 'latitude', 'longitude', 'geojson'])
             ->toArray();
     }
 }

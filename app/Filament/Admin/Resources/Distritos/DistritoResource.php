@@ -32,14 +32,33 @@ class DistritoResource extends Resource
                         ->label('Nome do Distrito'),
                     TextInput::make('cidade')
                         ->required()
-                        ->label('Cidade'),
+                        ->label('Cidade')
+                        ->live(debounce: 1000)
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            if ($state) {
+                                try {
+                                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                                        'User-Agent' => 'CCDAE-System'
+                                    ])->get('https://nominatim.openstreetmap.org/search', [
+                                        'q' => $state . ', MT',
+                                        'format' => 'json',
+                                        'limit' => 1
+                                    ]);
+                                    if ($response->successful() && !empty($response->json())) {
+                                        $data = $response->json()[0];
+                                        $loc = $get('location') ?? [];
+                                        $loc['lat'] = (float)$data['lat'];
+                                        $loc['lng'] = (float)$data['lon'];
+                                        $set('location', $loc);
+                                    }
+                                } catch (\Exception $e) {}
+                            }
+                        }),
                     TextInput::make('latitude')
-                        ->required()
                         ->numeric()
                         ->readOnly()
                         ->helperText('Preenchido automaticamente ao clicar no mapa.'),
                     TextInput::make('longitude')
-                        ->required()
                         ->numeric()
                         ->readOnly(),
                 ]),
@@ -53,12 +72,16 @@ class DistritoResource extends Resource
                         
                         // Extrai o geojson desenhado na tela para a coluna do banco
                         if (isset($state['geojson'])) {
-                            $set('geojson', $state['geojson']);
+                            $geo = $state['geojson'];
+                            if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
+                                $geo = $geo['features'][0]['geometry'] ?? $geo;
+                            }
+                            $set('geojson', $geo);
                         } else {
                             $set('geojson', null);
                         }
                     })
-                    ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set): void {
+                    ->afterStateHydrated(function ($state, $record, callable $set): void {
                         if ($record) {
                             $set('location', [
                                 'lat' => $record->latitude, 
@@ -67,8 +90,8 @@ class DistritoResource extends Resource
                             ]);
                         }
                     })
-                    ->clickable(true)
-                    ->showMarker(true)
+                    ->clickable(false)
+                    ->showMarker(false)
                     ->showFullscreenControl(true)
                     ->showZoomControl(true)
                     ->geoMan(true)
@@ -82,6 +105,10 @@ class DistritoResource extends Resource
                     ->drawText(false)
                     ->editPolygon(true)
                     ->deleteLayer(true),
+                \Filament\Forms\Components\ViewField::make('map_injector')
+                    ->view('filament.admin.views.map-districts-injector')
+                    ->hiddenLabel()
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -112,7 +139,11 @@ class DistritoResource extends Resource
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->mutateFormDataUsing(function (array $data, $record): array {
+                        $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null, $record->id);
+                        return $data;
+                    }),
                 DeleteAction::make(),
             ])
             ->toolbarActions([

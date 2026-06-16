@@ -11,9 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('distritos', function (Blueprint $table) {
-            $table->json('geojson')->nullable();
-        });
+        \Illuminate\Support\Facades\DB::statement('CREATE EXTENSION IF NOT EXISTS postgis;');
     }
 
     /**
@@ -21,8 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('distritos', function (Blueprint $table) {
-            $table->dropColumn('geojson');
-        });
+        \Illuminate\Support\Facades\DB::statement('DROP EXTENSION IF EXISTS postgis;');
     }
 };

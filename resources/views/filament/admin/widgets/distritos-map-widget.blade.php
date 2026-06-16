@@ -24,9 +24,21 @@
                             let bounds = [];
 
                             distritos.forEach(d => {
-                                let marker = L.marker([d.latitude, d.longitude]).addTo(map);
-                                marker.bindPopup(`<b>${d.nome}</b><br>${d.cidade}`);
-                                bounds.push([d.latitude, d.longitude]);
+                                if (d.geojson) {
+                                    let parsedGeojson = typeof d.geojson === 'string' ? JSON.parse(d.geojson) : d.geojson;
+                                    let geoLayer = L.geoJSON(parsedGeojson, {
+                                        style: { color: '#3b82f6', weight: 2, fillOpacity: 0.3 }
+                                    }).addTo(map);
+                                    geoLayer.bindPopup(`<b>${d.nome}</b><br>${d.cidade}`);
+                                    
+                                    let layerBounds = geoLayer.getBounds();
+                                    bounds.push([layerBounds.getSouthWest().lat, layerBounds.getSouthWest().lng]);
+                                    bounds.push([layerBounds.getNorthEast().lat, layerBounds.getNorthEast().lng]);
+                                } else if (d.latitude && d.longitude) {
+                                    let marker = L.marker([d.latitude, d.longitude]).addTo(map);
+                                    marker.bindPopup(`<b>${d.nome}</b><br>${d.cidade}`);
+                                    bounds.push([d.latitude, d.longitude]);
+                                }
                             });
 
                             if(bounds.length > 0) {

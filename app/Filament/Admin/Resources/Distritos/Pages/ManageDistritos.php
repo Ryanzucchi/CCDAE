@@ -23,7 +23,11 @@ class ManageDistritos extends ManageRecords
     {
         return [
             CreateAction::make()
-                ->label('Novo Distrito'),
+                ->label('Novo Distrito')
+                ->mutateFormDataUsing(function (array $data): array {
+                    $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null);
+                    return $data;
+                }),
         ];
     }
 
@@ -64,6 +68,7 @@ class ManageDistritos extends ManageRecords
             ->action(function (array $data, array $arguments): void {
                 $distrito = Distrito::find($arguments['id']);
                 if ($distrito) {
+                    $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null, $distrito->id);
                     $distrito->update($data);
                 }
             });

@@ -7,6 +7,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/api/distritos/geojson', [\App\Http\Controllers\Api\DistritosGeojsonController::class, 'index'])->name('api.distritos.geojson');
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

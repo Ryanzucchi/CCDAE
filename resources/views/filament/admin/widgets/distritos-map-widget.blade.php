@@ -6,15 +6,30 @@
 
         <div wire:ignore id="distritos-map" style="width: 100%; height: 400px; border-radius: 0.5rem; z-index: 10;"></div>
 
+        <style>
+            .leaflet-pane svg,
+            .leaflet-pane canvas {
+                max-width: none !important;
+                max-height: none !important;
+                display: block !important;
+            }
+            .leaflet-overlay-pane svg {
+                max-width: none !important;
+                max-height: none !important;
+            }
+        </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.data('distritosMap', () => ({
                     init() {
                         setTimeout(() => {
                             let map = L.map('distritos-map').setView([-23.550520, -46.633308], 10); // Centro em SP
+
+                            new ResizeObserver(() => {
+                                map.invalidateSize();
+                            }).observe(document.getElementById('distritos-map'));
 
                             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                                 attribution: '&copy; OpenStreetMap contributors'

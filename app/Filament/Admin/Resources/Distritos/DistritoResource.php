@@ -68,19 +68,32 @@ class DistritoResource extends Resource
                     ->columnSpanFull()
                     ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                        $set('latitude', $state['lat']);
-                        $set('longitude', $state['lng']);
-                        
-                        // Extrai o geojson desenhado na tela para a coluna do banco
                         if (isset($state['geojson'])) {
                             $geo = $state['geojson'];
                             if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                                 $geo = $geo['features'][0]['geometry'] ?? $geo;
                             }
                             $set('geojson', $geo);
+
+                            // O centro DEVE SEMPRE ser o do polígono.
+                            try {
+                                $centroid = \Illuminate\Support\Facades\DB::selectOne(
+                                    "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                                    [json_encode($geo), json_encode($geo)]
+                                );
+                                if ($centroid && $centroid->lat && $centroid->lng) {
+                                    $set('latitude', round($centroid->lat, 6));
+                                    $set('longitude', round($centroid->lng, 6));
+                                    return; // Retorna para não limpar as caixas
+                                }
+                            } catch (\Exception $e) {}
                         } else {
                             $set('geojson', null);
                         }
+
+                        // Se NÃO houver polígono, NUNCA usa o centro da tela. Limpa as caixas.
+                        $set('latitude', null);
+                        $set('longitude', null);
                     })
                     ->afterStateHydrated(function ($state, $record, callable $set): void {
                         if ($record) {

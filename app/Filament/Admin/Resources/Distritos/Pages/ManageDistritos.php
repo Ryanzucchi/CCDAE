@@ -30,9 +30,23 @@ class ManageDistritos extends ManageRecords
                     if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                         $geo = $geo['features'][0]['geometry'] ?? $geo;
                     }
-                    $data['geojson'] = Distrito::autoShrinkGeojson($geo);
-                    $data['latitude'] = $location['lat'] ?? $data['latitude'] ?? null;
-                    $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
+                    $data['geojson'] = Distrito::autoShrinkGeojson($geo, null);
+                    $data['latitude'] = $data['latitude'] ?? null;
+                    $data['longitude'] = $data['longitude'] ?? null;
+
+                    if (!empty($data['geojson'])) {
+                        try {
+                            $centroid = \Illuminate\Support\Facades\DB::selectOne(
+                                "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                                [json_encode($data['geojson']), json_encode($data['geojson'])]
+                            );
+                            if ($centroid && $centroid->lat && $centroid->lng) {
+                                $data['latitude'] = round($centroid->lat, 6);
+                                $data['longitude'] = round($centroid->lng, 6);
+                            }
+                        } catch (\Exception $e) {}
+                    }
+
                     unset($data['location']);
                     unset($data['map_injector']);
                     return $data;
@@ -81,12 +95,40 @@ class ManageDistritos extends ManageRecords
                         $geo = $geo['features'][0]['geometry'] ?? $geo;
                     }
                     $data['geojson'] = Distrito::autoShrinkGeojson($geo, $distrito->id);
-                    $data['latitude'] = $location['lat'] ?? $data['latitude'] ?? null;
-                    $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
+                    $data['latitude'] = $data['latitude'] ?? null;
+                    $data['longitude'] = $data['longitude'] ?? null;
+
+                    if (!empty($data['geojson'])) {
+                        try {
+                            $centroid = \Illuminate\Support\Facades\DB::selectOne(
+                                "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                                [json_encode($data['geojson']), json_encode($data['geojson'])]
+                            );
+                            if ($centroid && $centroid->lat && $centroid->lng) {
+                                $data['latitude'] = round($centroid->lat, 6);
+                                $data['longitude'] = round($centroid->lng, 6);
+                            }
+                        } catch (\Exception $e) {}
+                    }
+
                     unset($data['location']);
                     unset($data['map_injector']);
                     $distrito->update($data);
                 }
             });
+    }
+
+    protected function cacheMountedActions(array $mountedActions): array
+    {
+        $cleanedActions = [];
+        foreach ($mountedActions as $action) {
+            if (is_array($action) && !empty($action['name'])) {
+                $cleanedActions[] = $action;
+            } else {
+                file_put_contents(storage_path('logs/debug.log'), "REMOVED INVALID ACTION: " . json_encode($action) . "\n", FILE_APPEND);
+            }
+        }
+        $this->mountedActions = $cleanedActions;
+        return parent::cacheMountedActions($cleanedActions);
     }
 }

@@ -102,7 +102,7 @@ class Distrito extends Model
             $diffQuery = "SELECT ST_AsGeoJSON(
                 ST_Difference(
                     ST_SetSRID(ST_GeomFromGeoJSON(?), 4326),
-                    ST_Buffer(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), 0.0002)
+                    ST_Buffer(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), 0.00002)
                 )
             ) as new_geom";
             $result = \Illuminate\Support\Facades\DB::selectOne($diffQuery, [$geoJsonStr, $union->union_geom]);

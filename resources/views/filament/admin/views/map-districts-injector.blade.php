@@ -1,26 +1,28 @@
-<div x-data="{
-    init() {
-        let attempts = 0;
-        let interval = setInterval(() => {
-            let mapEl = document.querySelector('[x-data^=\'mapPicker\']');
-            if (mapEl) {
-                let mapData = Alpine.$data(mapEl);
-                if (mapData && mapData.map) {
-                    clearInterval(interval);
-                    let map = mapData.map;
-                    
-                    // Fallback para L caso não esteja global
-                    let L_ref = window.L;
-                    if(!L_ref && mapData.marker) {
-                         // hack para pegar o L se não estiver global
-                         L_ref = mapData.marker._map ? window.L : window.L;
-                    }
-                    
-                    fetch('/api/distritos/geojson')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (L_ref) {
-                                L_ref.geoJSON(data, {
+<div>
+    <style>
+        .leaflet-pane svg,
+        .leaflet-pane canvas {
+            max-width: none !important;
+            display: block !important;
+        }
+    </style>
+    <!-- Carrega a biblioteca global L caso o Filament não a exponha -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <div x-data="{
+        init() {
+            let attempts = 0;
+            let interval = setInterval(() => {
+                let mapEl = document.querySelector('[x-data^=\'mapPicker\']');
+                if (mapEl) {
+                    let mapData = Alpine.$data(mapEl);
+                    if (mapData && mapData.map && window.L) {
+                        clearInterval(interval);
+                        let map = mapData.map;
+                        
+                        fetch('/api/distritos/geojson')
+                            .then(res => res.json())
+                            .then(data => {
+                                window.L.geoJSON(data, {
                                     style: {
                                         color: '#9ca3af',
                                         weight: 2,
@@ -34,14 +36,12 @@
                                         }
                                     }
                                 }).addTo(map);
-                            } else {
-                                console.error('Leaflet L reference not found');
-                            }
-                        });
+                            });
+                    }
                 }
-            }
-            attempts++;
-            if(attempts > 100) clearInterval(interval); // Timeout após 10 segundos
-        }, 100);
-    }
-}"></div>
+                attempts++;
+                if(attempts > 100) clearInterval(interval);
+            }, 100);
+        }
+    }"></div>
+</div>

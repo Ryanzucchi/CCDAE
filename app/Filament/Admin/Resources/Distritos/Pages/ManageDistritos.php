@@ -25,7 +25,16 @@ class ManageDistritos extends ManageRecords
             CreateAction::make()
                 ->label('Novo Distrito')
                 ->mutateFormDataUsing(function (array $data): array {
-                    $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null);
+                    $location = $data['location'] ?? [];
+                    $geo = $location['geojson'] ?? null;
+                    if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
+                        $geo = $geo['features'][0]['geometry'] ?? $geo;
+                    }
+                    $data['geojson'] = Distrito::autoShrinkGeojson($geo);
+                    $data['latitude'] = $location['lat'] ?? $data['latitude'] ?? null;
+                    $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
+                    unset($data['location']);
+                    unset($data['map_injector']);
                     return $data;
                 }),
         ];
@@ -61,14 +70,21 @@ class ManageDistritos extends ManageRecords
     public function editDistritoAction(): Action
     {
         return Action::make('editDistrito')
-            ->hiddenLabel()
-            ->hidden()
             ->form(fn () => DistritoResource::form(Schema::make())->getComponents())
             ->fillForm(fn (array $arguments) => Distrito::find($arguments['id'])?->toArray() ?? [])
             ->action(function (array $data, array $arguments): void {
                 $distrito = Distrito::find($arguments['id']);
                 if ($distrito) {
-                    $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null, $distrito->id);
+                    $location = $data['location'] ?? [];
+                    $geo = $location['geojson'] ?? null;
+                    if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
+                        $geo = $geo['features'][0]['geometry'] ?? $geo;
+                    }
+                    $data['geojson'] = Distrito::autoShrinkGeojson($geo, $distrito->id);
+                    $data['latitude'] = $location['lat'] ?? $data['latitude'] ?? null;
+                    $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
+                    unset($data['location']);
+                    unset($data['map_injector']);
                     $distrito->update($data);
                 }
             });

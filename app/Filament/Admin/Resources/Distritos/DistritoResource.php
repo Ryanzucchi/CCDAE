@@ -142,7 +142,16 @@ class DistritoResource extends Resource
             ->recordActions([
                 EditAction::make()
                     ->mutateFormDataUsing(function (array $data, $record): array {
-                        $data['geojson'] = Distrito::autoShrinkGeojson($data['geojson'] ?? null, $record->id);
+                        $location = $data['location'] ?? [];
+                        $geo = $location['geojson'] ?? null;
+                        if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
+                            $geo = $geo['features'][0]['geometry'] ?? $geo;
+                        }
+                        $data['geojson'] = Distrito::autoShrinkGeojson($geo, $record->id);
+                        $data['latitude'] = $location['lat'] ?? $data['latitude'] ?? null;
+                        $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
+                        unset($data['location']);
+                        unset($data['map_injector']);
                         return $data;
                     }),
                 DeleteAction::make(),

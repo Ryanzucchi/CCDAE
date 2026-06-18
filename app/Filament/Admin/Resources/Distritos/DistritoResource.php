@@ -33,42 +33,59 @@ class DistritoResource extends Resource
                     TextInput::make('cidade')
                         ->required()
                         ->label('Cidade')
-                        ->live(debounce: 1000)
-                        ->afterStateUpdated(function ($state, callable $set, callable $get, \Livewire\Component $livewire) {
-                            if ($state) {
-                                try {
-                                    $response = \Illuminate\Support\Facades\Http::withHeaders([
-                                        'User-Agent' => 'CCDAE-System'
-                                    ])->get('https://nominatim.openstreetmap.org/search', [
-                                        'q' => $state . ', MT',
-                                        'format' => 'json',
-                                        'limit' => 1
-                                    ]);
-                                    if ($response->successful() && !empty($response->json())) {
-                                        $data = $response->json()[0];
-                                        $loc = $get('location') ?? [];
-                                        $loc['lat'] = (float)$data['lat'];
-                                        $loc['lng'] = (float)$data['lon'];
-                                        $set('location', $loc);
-                                        $livewire->dispatch('refreshMap');
+                        ->suffixAction(
+                            \Filament\Actions\Action::make('searchMap')
+                                ->icon('heroicon-m-magnifying-glass')
+                                ->label('Buscar no Mapa')
+                                ->action(function ($state, callable $set, callable $get, \Livewire\Component $livewire) {
+                                    if ($state) {
+                                        try {
+                                            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                                                'User-Agent' => 'CCDAE-System'
+                                            ])->get('https://nominatim.openstreetmap.org/search', [
+                                                'q' => $state . ', MT',
+                                                'format' => 'json',
+                                                'limit' => 1
+                                            ]);
+                                            if ($response->successful() && !empty($response->json())) {
+                                                $data = $response->json()[0];
+                                                $loc = $get('location') ?? [];
+                                                $loc['lat'] = (float)$data['lat'];
+                                                $loc['lng'] = (float)$data['lon'];
+                                                $set('location', $loc);
+                                                $livewire->dispatch('refreshMap');
+                                            }
+                                        } catch (\Exception $e) {}
                                     }
-                                } catch (\Exception $e) {}
-                            }
-                        }),
-                    TextInput::make('latitude')
+                                })
+                        ),
+                    \Filament\Forms\Components\TextInput::make('latitude')
                         ->numeric()
                         ->readOnly()
+                        ->dehydrated()
                         ->helperText('Preenchido automaticamente ao clicar no mapa.'),
-                    TextInput::make('longitude')
+                    \Filament\Forms\Components\TextInput::make('longitude')
                         ->numeric()
-                        ->readOnly(),
+                        ->readOnly()
+                        ->dehydrated()
+                        ->helperText('Preenchido automaticamente ao clicar no mapa.'),
                 ]),
+                \Filament\Forms\Components\Hidden::make('geojson')
+                    ->required()
+                    ->rule(function () {
+                        return function (string $attribute, $value, \Closure $fail) {
+                            if (!$value) {
+                                $fail('Você precisa desenhar e concluir (fechar) o polígono no mapa.');
+                            }
+                        };
+                    })
+                    ->dehydrated(),
                 \Dotswan\MapPicker\Fields\Map::make('location')
                     ->label('Fronteiras e Localização no Mapa')
                     ->columnSpanFull()
                     ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                        if (isset($state['geojson'])) {
+                        if (isset($state['geojson']) && !empty($state['geojson'])) {
                             $geo = $state['geojson'];
                             if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                                 $geo = $geo['features'][0]['geometry'] ?? $geo;
@@ -84,16 +101,16 @@ class DistritoResource extends Resource
                                 if ($centroid && $centroid->lat && $centroid->lng) {
                                     $set('latitude', round($centroid->lat, 6));
                                     $set('longitude', round($centroid->lng, 6));
-                                    return; // Retorna para não limpar as caixas
                                 }
                             } catch (\Exception $e) {}
                         } else {
                             $set('geojson', null);
+                            // Somente apaga latitude e longitude se o usuário de fato apagou o polígono que estava presente
+                            if (!$get('geojson')) {
+                                $set('latitude', null);
+                                $set('longitude', null);
+                            }
                         }
-
-                        // Se NÃO houver polígono, NUNCA usa o centro da tela. Limpa as caixas.
-                        $set('latitude', null);
-                        $set('longitude', null);
                     })
                     ->afterStateHydrated(function ($state, $record, callable $set): void {
                         if ($record) {

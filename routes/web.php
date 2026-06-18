@@ -9,6 +9,10 @@ Route::get('/', function () {
 
 Route::get('/api/distritos/geojson', \App\Http\Controllers\Api\DistritosGeojsonController::class)->name('api.distritos.geojson');
 
+Route::get('/export-distritos-temp', function () {
+    return response()->json(\App\Models\Distrito::all());
+});
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

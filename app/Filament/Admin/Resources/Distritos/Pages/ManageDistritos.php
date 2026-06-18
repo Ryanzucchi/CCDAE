@@ -87,6 +87,7 @@ class ManageDistritos extends ManageRecords
             ->form(fn () => DistritoResource::form(Schema::make())->getComponents())
             ->fillForm(fn (array $arguments) => Distrito::find($arguments['id'])?->toArray() ?? [])
             ->action(function (array $data, array $arguments): void {
+                file_put_contents(storage_path('logs/debug_edit.log'), "RAW EDIT DATA: " . json_encode($data) . "\n", FILE_APPEND);
                 $distrito = Distrito::find($arguments['id']);
                 if ($distrito) {
                     $location = $data['location'] ?? [];
@@ -113,6 +114,7 @@ class ManageDistritos extends ManageRecords
 
                     unset($data['location']);
                     unset($data['map_injector']);
+                    file_put_contents(storage_path('logs/debug.log'), "EDIT SAVE DATA: " . json_encode($data) . "\n", FILE_APPEND);
                     $distrito->update($data);
                 }
             });

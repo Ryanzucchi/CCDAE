@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Resources\Antenas\Schemas;
 
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class AntenaForm
@@ -13,28 +15,73 @@ class AntenaForm
     {
         return $schema
             ->components([
-                TextInput::make('distrito_id')
-                    ->numeric(),
-                TextInput::make('codigo_patrimonio'),
-                TextInput::make('latitude')
-                    ->numeric(),
-                TextInput::make('longitude')
-                    ->numeric(),
-                TextInput::make('tipo_sinal'),
-                TextInput::make('frequencia_mhz')
-                    ->numeric(),
-                TextInput::make('alcance_metros')
-                    ->numeric(),
-                TextInput::make('potencia_dbm')
-                    ->numeric(),
-                TextInput::make('proprietario'),
-                DatePicker::make('data_instalacao'),
-                DatePicker::make('ultima_manutencao'),
-                TextInput::make('estado_conservacao')
-                    ->required()
-                    ->default('bom'),
-                Textarea::make('observacoes')
-                    ->columnSpanFull(),
+                Section::make('Dados Principais')->columns(2)->schema([
+                    Select::make('distrito_id')
+                        ->relationship('distrito', 'nome')
+                        ->searchable()
+                        ->preload()
+                        ->label('Distrito'),
+                    TextInput::make('codigo_patrimonio')->label('Código de Patrimônio'),
+                    Select::make('tipo_sinal')
+                        ->options([
+                            '5G' => '5G',
+                            '4G' => '4G',
+                            '3G' => '3G',
+                            'Radio' => 'Rádio / Micro-ondas',
+                            'Satélite' => 'Satélite',
+                        ])
+                        ->label('Tipo de Sinal'),
+                    TextInput::make('frequencia_mhz')->numeric()->label('Frequência')->suffix('MHz'),
+                    TextInput::make('alcance_metros')->numeric()->label('Alcance')->suffix('m'),
+                    TextInput::make('potencia_dbm')->numeric()->label('Potência')->suffix('dBm'),
+                    TextInput::make('proprietario')->label('Proprietário (Telecom)'),
+                ]),
+                Section::make('Desgaste & Vida Útil')->columns(3)->schema([
+                    Select::make('estado_conservacao')
+                        ->options([
+                            'novo' => 'Novo',
+                            'bom' => 'Bom',
+                            'regular' => 'Regular',
+                            'ruim' => 'Ruim',
+                            'critico' => 'Crítico',
+                        ])
+                        ->required()
+                        ->default('bom')
+                        ->label('Estado de Conservação'),
+                    DatePicker::make('data_instalacao')->label('Instalação'),
+                    DatePicker::make('ultima_manutencao')->label('Última Manutenção'),
+                ]),
+                Section::make('Localização Espacial')->schema([
+                    \Filament\Forms\Components\Hidden::make('latitude'),
+                    \Filament\Forms\Components\Hidden::make('longitude'),
+                    \Dotswan\MapPicker\Fields\Map::make('location')
+                        ->label('Clique no mapa para marcar a posição da Antena')
+                        ->columnSpanFull()
+                        ->dehydrated(false)
+                        ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            if (isset($state['lat']) && isset($state['lng'])) {
+                                $set('latitude', round($state['lat'], 7));
+                                $set('longitude', round($state['lng'], 7));
+                            } else {
+                                $set('latitude', null);
+                                $set('longitude', null);
+                            }
+                        })
+                        ->afterStateHydrated(function ($state, $record, callable $set): void {
+                            if ($record && $record->latitude && $record->longitude) {
+                                $set('location', ['lat' => $record->latitude, 'lng' => $record->longitude]);
+                            }
+                        })
+                        ->clickable(true)
+                        ->showMarker(true)
+                        ->showFullscreenControl(true)
+                        ->showZoomControl(true)
+                        ->geoMan(false),
+                ]),
+                Section::make('Observações')->schema([
+                    Textarea::make('observacoes')->columnSpanFull()->label('Observações Adicionais'),
+                ])
             ]);
     }
 }

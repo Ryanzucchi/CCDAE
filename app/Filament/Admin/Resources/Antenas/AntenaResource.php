@@ -18,7 +18,8 @@ class AntenaResource extends Resource
 {
     protected static ?string $model = Antena::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\UnitEnum|null $navigationGroup = 'Infraestrutura Urbana';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSignal;
 
     public static function form(Schema $schema): Schema
     {

@@ -18,7 +18,8 @@ class EquipamentoInfraestruturaResource extends Resource
 {
     protected static ?string $model = EquipamentoInfraestrutura::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\UnitEnum|null $navigationGroup = 'Infraestrutura Urbana';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
 
     public static function form(Schema $schema): Schema
     {

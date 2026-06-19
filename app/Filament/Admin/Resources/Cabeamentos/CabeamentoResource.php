@@ -18,7 +18,8 @@ class CabeamentoResource extends Resource
 {
     protected static ?string $model = Cabeamento::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\UnitEnum|null $navigationGroup = 'Infraestrutura Urbana';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLink;
 
     public static function form(Schema $schema): Schema
     {

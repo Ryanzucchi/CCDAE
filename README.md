@@ -17,8 +17,8 @@ Através da convergência entre IoT, análise temporal e mapeamento georreferenc
 O projeto é concebido em formato modular, garantindo expansão contínua para abranger todos os aspectos da infraestrutura urbana:
 
 - [x] **Módulo de Clima**: Monitoramento de alta frequência de variáveis climáticas via IoT (Temperatura, Chuvas, Raios UV, Pressão, Radiação e Partículas de Ar). *(Concluído)*
-- [ ] **Módulo de Distritos**: Gestão territorial inteligente com geração dinâmica de fronteiras via Diagramas de Voronoi e renderização de alta performance. *(Em andamento)*
-- [ ] **Mapeamento de Infraestrutura**: Cadastro e visualização espacial de postes, antenas, centrais de distribuição e cabeamentos. *(Em breve)*
+- [x] **Módulo de Distritos**: Gestão territorial inteligente com geração dinâmica de fronteiras via Diagramas de Voronoi e renderização de alta performance. *(Em andamento)*
+- [] **Mapeamento de Infraestrutura**: Cadastro e visualização espacial de postes, antenas, centrais de distribuição e cabeamentos. *(Em andamento)*
 - [ ] **Mapeamento de Desgaste**: Análise analítica e visual do estado de conservação física dos ativos mapeados. *(Em breve)*
 - [ ] **Mapeamento de Fios**: Rastreamento da teia de cabeamentos ópticos e elétricos cruzando os distritos. *(Em breve)*
 - [ ] **Mapeamento de Trânsito**: Integração com fluxos viários para entender impactos logísticos e gargalos de manutenção. *(Em breve)*

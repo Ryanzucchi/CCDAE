@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
     ->withSchedule(function ($schedule) {
         $schedule->job(new CollectClimateData)
-            ->everyMinute();
+            ->hourly();
     })
 
     ->withExceptions(function (Exceptions $exceptions): void {

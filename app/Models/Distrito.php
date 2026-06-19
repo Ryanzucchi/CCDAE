@@ -76,12 +76,52 @@ class Distrito extends Model
 
     public function regioes()
     {
-        return $this->belongsToMany(RegiaoClimatica::class);
+        return $this->belongsToMany(RegiaoClimatica::class)
+                    ->withPivot('start_time', 'end_time');
     }
 
     public function regiaoClimatica()
     {
         return $this->belongsTo(RegiaoClimatica::class);
+    }
+
+    /**
+     * Busca os dados climáticos para o timestamp especificado.
+     * Se os dados do distrito tiverem sido sanitizados (agrupados numa Região),
+     * busca automaticamente através da região correspondente.
+     */
+    public function getClimaAt($relation, $timestamp)
+    {
+        // 1. Tenta buscar no próprio distrito (caso não tenha sido agrupado/sanitizado)
+        $record = $this->$relation()->where('timestamp', $timestamp)->first();
+        if ($record) {
+            return $record;
+        }
+
+        // 2. Se não encontrou, verifica se no momento estava agrupado numa região climática
+        $regiao = $this->regioes()
+            ->wherePivot('start_time', '<=', $timestamp)
+            ->wherePivot('end_time', '>=', $timestamp)
+            ->first();
+
+        if ($regiao) {
+            // Busca o distrito "primário" que manteve os dados dessa região nesse exato momento
+            // Pode ser o primeiro distrito da região que não seja o atual e possua o dado
+            $distritosDaRegiao = $regiao->distritos()
+                ->where('distritos.id', '!=', $this->id)
+                ->wherePivot('start_time', '<=', $timestamp)
+                ->wherePivot('end_time', '>=', $timestamp)
+                ->get();
+
+            foreach ($distritosDaRegiao as $d) {
+                $siblingRecord = $d->$relation()->where('timestamp', $timestamp)->first();
+                if ($siblingRecord) {
+                    return $siblingRecord;
+                }
+            }
+        }
+
+        return null;
     }
 
     public static function autoShrinkGeojson($geojsonArray, $ignoreId = null)

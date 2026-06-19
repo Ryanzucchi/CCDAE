@@ -35,19 +35,24 @@ class SystemHealth extends Page implements HasTable
     public function startQueueWorker()
     {
         $base = base_path();
-        $log = storage_path('logs/queue-worker.log');
-        $cmd = "nohup php {$base}/artisan queue:work > {$log} 2>&1 & echo $!";
+        $logQueue = storage_path('logs/queue-worker.log');
+        $logSchedule = storage_path('logs/schedule-worker.log');
+        
+        $cmdQueue = "nohup php {$base}/artisan queue:work > {$logQueue} 2>&1 & echo $!";
+        $cmdSchedule = "nohup php {$base}/artisan schedule:work > {$logSchedule} 2>&1 & echo $!";
         
         if (function_exists('shell_exec')) {
-            shell_exec($cmd);
+            shell_exec($cmdQueue);
+            shell_exec($cmdSchedule);
         } else {
-            @exec($cmd);
+            @exec($cmdQueue);
+            @exec($cmdSchedule);
         }
         
         Cache::put('queue_worker_last_seen', now()->timestamp, 300);
         
         Notification::make()
-            ->title('Queue worker iniciado em segundo plano!')
+            ->title('Background Workers (Queue & Scheduler) iniciados!')
             ->success()
             ->send();
     }
@@ -55,10 +60,19 @@ class SystemHealth extends Page implements HasTable
     public function stopQueueWorker()
     {
         \Illuminate\Support\Facades\Artisan::call('queue:restart');
+        
+        // Pkill the schedule:work process since Laravel has no built-in command to gracefully stop it
+        $cmdStopSchedule = "pkill -f 'artisan schedule:work'";
+        if (function_exists('shell_exec')) {
+            shell_exec($cmdStopSchedule);
+        } else {
+            @exec($cmdStopSchedule);
+        }
+
         Cache::forget('queue_worker_last_seen');
         
         Notification::make()
-            ->title('Sinal de parada enviado ao Worker!')
+            ->title('Sinal de parada enviado para Fila e Scheduler!')
             ->warning()
             ->send();
     }

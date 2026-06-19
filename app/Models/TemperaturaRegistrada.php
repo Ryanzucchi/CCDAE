@@ -19,7 +19,7 @@ class TemperaturaRegistrada extends Model
 
     // IMPORTANTE
     public $incrementing = false;
-    protected $primaryKey = null;
+    protected $primaryKey = 'filament_id';
 
     public function getKey()
     {
@@ -28,6 +28,11 @@ class TemperaturaRegistrada extends Model
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
         return "{$this->distrito_id}_{$timestamp}";
+    }
+
+    public function getFilamentIdAttribute()
+    {
+        return $this->getKey();
     }
 
     protected $fillable = [

@@ -86,8 +86,14 @@
                                         <div class="legend-item"><span class="legend-color" style="background:#9ca3af; border:1px solid #000;"></span> Postes</div>
                                         <div class="legend-item"><span class="legend-color" style="background:#ec4899;"></span> Antenas Telecom</div>
                                         <div class="legend-item"><span class="legend-color" style="background:#10b981;"></span> Equipamentos</div>
-                                        <div class="legend-item" style="margin-top:6px;"><span class="legend-line" style="background:#06b6d4;"></span> Cabo de Fibra Óptica</div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#ef4444;"></span> Cabo de Alta Tensão</div>
+                                        <div class="legend-item" style="margin-top:8px;"><strong>Fluxo de Trânsito</strong></div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#22c55e;"></span> Via Livre</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#eab308;"></span> Moderado</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#f97316;"></span> Intenso</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#ef4444;"></span> Parado</div>
+                                        <div class="legend-item" style="margin-top:8px;"><strong>Cabeamento</strong></div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#06b6d4;"></span> Cabo de Fibra Óptica</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#a855f7;"></span> Cabo de Alta Tensão</div>
                                         <div class="legend-item"><span class="legend-line" style="background:#3b82f6;"></span> Outros Cabeamentos</div>
                                     `;
                                     return div;
@@ -102,6 +108,7 @@
                                     centrais: @json($this->centrais),
                                     equipamentos: @json($this->equipamentos),
                                     cabeamentos: @json($this->cabeamentos),
+                                    vias: @json($this->vias),
                                 };
                                 this.renderMap(payload);
                             }, 300);
@@ -111,7 +118,6 @@
                                     setTimeout(() => {
                                         infraMap.invalidateSize(); 
                                         infraLayerGroup.clearLayers();
-                                        // Livewire 3 passa os dados dentro de um array associativo no detail
                                         let payload = e.detail[0] || e.detail;
                                         this.renderMap(payload);
                                     }, 100);
@@ -122,7 +128,32 @@
                         renderMap(data) {
                             let bounds = [];
 
+                            // Vias de Transito (Lines)
+                            if (data.vias) {
+                                data.vias.forEach(v => {
+                                    if (v.geojson) {
+                                        try {
+                                            let geo = typeof v.geojson === 'string' ? JSON.parse(v.geojson) : v.geojson;
+                                            
+                                            // Cores baseadas no congestionamento
+                                            let color = '#22c55e'; // Livre
+                                            if(v.nivel_congestionamento === 'moderado') color = '#eab308';
+                                            if(v.nivel_congestionamento === 'intenso') color = '#f97316';
+                                            if(v.nivel_congestionamento === 'parado') color = '#ef4444';
+                                            
+                                            let layer = L.geoJSON(geo, { style: { color: color, weight: 6, opacity: 0.9 } });
+                                            layer.bindPopup(`<b>Via:</b> ${v.nome}<br><b>Congestionamento:</b> <span style="color:${color}; font-weight:bold; text-transform:uppercase;">${v.nivel_congestionamento}</span><br><b>Velocidade Média:</b> ${v.velocidade_media} km/h`);
+                                            infraLayerGroup.addLayer(layer);
+                                            let layerBounds = layer.getBounds();
+                                            bounds.push([layerBounds.getSouthWest().lat, layerBounds.getSouthWest().lng]);
+                                            bounds.push([layerBounds.getNorthEast().lat, layerBounds.getNorthEast().lng]);
+                                        } catch(e) {}
+                                    }
+                                });
+                            }
+
                             // Centrais de Distribuição (Polygons or Points)
+
                             if (data.centrais) {
                                 data.centrais.forEach(c => {
                                     if (c.geojson) {

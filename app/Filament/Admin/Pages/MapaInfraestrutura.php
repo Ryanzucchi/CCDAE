@@ -28,6 +28,14 @@ class MapaInfraestrutura extends Page
         return Distrito::orderBy('nome')->pluck('nome', 'id')->toArray();
     }
 
+    public function getCabeamentosProperty() {
+        return Cabeamento::when($this->distrito_id, fn($q) => $q->where('distrito_id', $this->distrito_id))->get(['id', 'geojson', 'nome', 'tipo_cabo', 'estado_conservacao'])->toArray();
+    }
+
+    public function getViasProperty() {
+        return \App\Models\ViaTransito::when($this->distrito_id, fn($q) => $q->where('distrito_id', $this->distrito_id))->get(['id', 'geojson', 'nome', 'nivel_congestionamento', 'velocidade_media'])->toArray();
+    }
+
     public function updatedDistritoId()
     {
         $this->dispatch('update-infra-map', [
@@ -36,6 +44,7 @@ class MapaInfraestrutura extends Page
             'centrais' => $this->centrais,
             'equipamentos' => $this->equipamentos,
             'cabeamentos' => $this->cabeamentos,
+            'vias' => $this->vias,
         ]);
     }
 
@@ -55,9 +64,5 @@ class MapaInfraestrutura extends Page
         return EquipamentoInfraestrutura::when($this->distrito_id, fn($q) => $q->where('distrito_id', $this->distrito_id))
             ->whereNull('poste_id')->whereNull('central_id')
             ->get(['id', 'latitude', 'longitude', 'nome', 'tipo', 'estado_conservacao'])->toArray();
-    }
-    
-    public function getCabeamentosProperty() {
-        return Cabeamento::when($this->distrito_id, fn($q) => $q->where('distrito_id', $this->distrito_id))->get(['id', 'geojson', 'nome', 'tipo_cabo', 'estado_conservacao'])->toArray();
     }
 }

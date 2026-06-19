@@ -24,6 +24,10 @@ class InfraestruturaCaceresSeeder extends Seeder
         }
 
         foreach ($distritos as $distrito) {
+            if (\App\Models\Poste::where('distrito_id', $distrito->id)->exists()) {
+                $this->command->info('Infraestrutura já existe para: ' . $distrito->nome . ' (pulando...)');
+                continue;
+            }
             $this->command->info('Semeando infraestrutura para o distrito: ' . $distrito->nome);
             
             // Caso o distrito não tenha lat/lng (improvável), usa um fallback proximo a caceres

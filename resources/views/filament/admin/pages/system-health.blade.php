@@ -288,8 +288,9 @@
                     <x-slot name="heading">Sincronização Manual</x-slot>
                     <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 1rem; margin-top: 0.5rem; line-height: 1.5;">
                         Force a criação de um Job na fila agora mesmo.<br>
-                        Último registro gravado no DB:<br>
-                        <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_climate_record'] }}</strong>
+                        Últimos registros gravados no DB:<br>
+                        Clima: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_climate_record'] }}</strong><br>
+                        Trânsito: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_traffic_record'] }}</strong>
                     </p>
                     <button type="button" wire:click="runCollector" class="btn-custom" style="background: linear-gradient(to right, #3b82f6, #2563eb); box-shadow: 0 4px 14px 0 rgba(59,130,246,0.39);">
                         <x-filament::icon icon="heroicon-o-arrow-path" style="width: 1.25rem; height: 1.25rem; color: white;" />

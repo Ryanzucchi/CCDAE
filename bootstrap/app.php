@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Jobs\CollectClimateData;
+use App\Jobs\CollectTrafficData;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function ($schedule) {
         $schedule->job(new CollectClimateData)
             ->hourly();
+
+        $schedule->job(new CollectTrafficData)
+            ->everyFiveMinutes();
     })
 
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -6,6 +6,7 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use BackedEnum;
 use App\Jobs\CollectClimateData;
+use App\Jobs\CollectTrafficData;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -89,8 +90,9 @@ class SystemHealth extends Page implements HasTable
     public function runCollector()
     {
         CollectClimateData::dispatch();
+        CollectTrafficData::dispatch();
         Notification::make()
-            ->title('Job disparado com sucesso!')
+            ->title('Jobs de Coleta (Clima e Trânsito) disparados com sucesso!')
             ->success()
             ->send();
     }
@@ -98,7 +100,7 @@ class SystemHealth extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(Activity::query()->where('log_name', 'climate_collection'))
+            ->query(Activity::query()->whereIn('log_name', ['climate_collection', 'traffic_collection']))
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Horário')
@@ -111,10 +113,14 @@ class SystemHealth extends Page implements HasTable
                 TextColumn::make('log_name')
                     ->label('Canal')
                     ->badge()
-                    ->color('info'),
+                    ->color(fn (string $state): string => match ($state) {
+                        'climate_collection' => 'info',
+                        'traffic_collection' => 'warning',
+                        default => 'gray',
+                    }),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('Nenhum log gravado para o coletor ainda.');
+            ->emptyStateHeading('Nenhum log gravado para os coletores ainda.');
     }
 
     public function getViewData(): array
@@ -231,6 +237,16 @@ class SystemHealth extends Page implements HasTable
             $bottlenecks[] = ['type' => 'danger', 'msg' => 'Falta de dados de clima! Último registro foi há mais de 2 horas.'];
         }
 
+        // Last Traffic data record
+        $lastTrafficRecord = DB::table('registro_transitos')->latest('timestamp')->value('timestamp');
+        $lastTrafficRecordText = $lastTrafficRecord 
+            ? \Carbon\Carbon::parse($lastTrafficRecord)->format('d/m/Y H:i') . ' (' . \Carbon\Carbon::parse($lastTrafficRecord)->diffForHumans() . ')'
+            : 'Nenhum registro encontrado';
+
+        if ($lastTrafficRecord && \Carbon\Carbon::parse($lastTrafficRecord)->diffInHours(now()) > 2) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => 'Falta de dados de trânsito! Último registro foi há mais de 2 horas.'];
+        }
+
         // Worker Log Output
         $logPath = storage_path('logs/queue-worker.log');
         $workerLogs = 'Nenhum log de execução encontrado.';
@@ -257,6 +273,7 @@ class SystemHealth extends Page implements HasTable
                 'disk_total' => $diskTotalStr,
                 'disk_used_percent' => $diskUsedPercent,
                 'last_climate_record' => $lastClimateRecordText,
+                'last_traffic_record' => $lastTrafficRecordText,
                 'worker_logs' => $workerLogs,
                 'queue_driver' => config('queue.default'),
                 'bottlenecks' => $bottlenecks,

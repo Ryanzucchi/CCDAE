@@ -10,7 +10,7 @@ use Livewire\Attributes\Url;
 class MapaTransito extends Page
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map';
-    protected static string|\UnitEnum|null $navigationGroup = 'Trânsito e Mobilidade';
+    protected static string|\UnitEnum|null $navigationGroup = null;
     protected static ?string $navigationLabel = 'Mapa de Trânsito';
     protected static ?string $title = 'Fluxo de Trânsito Urbano';
     protected static ?string $slug = 'mapa-transito';

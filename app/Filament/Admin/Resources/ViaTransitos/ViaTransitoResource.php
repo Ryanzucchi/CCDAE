@@ -21,6 +21,7 @@ class ViaTransitoResource extends Resource
     protected static ?string $model = ViaTransito::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\UnitEnum|null $navigationGroup = 'Trânsito e Mobilidade';
 
     public static function form(Schema $schema): Schema
     {

@@ -15,8 +15,8 @@ class RegistroTransito extends Model
     // The primary key is composite (via_transito_id, timestamp)
     // TimescaleDB doesn't use the standard Eloquent auto-incrementing ID for hypertables
     public $incrementing = false;
-    protected $primaryKey = null;
-
+    protected $primaryKey = 'timestamp';
+    protected $keyType = 'string';
     // Hypertables in TimescaleDB often don't need created_at / updated_at
     // because timestamp serves that purpose natively, but Laravel provides them by default.
     // We'll leave timestamps enabled as the migration created them if we used `$table->timestamps()`.

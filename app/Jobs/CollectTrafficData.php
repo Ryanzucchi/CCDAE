@@ -101,6 +101,22 @@ class CollectTrafficData implements ShouldQueue
                     'nivel_servico' => $nivelServico,
                     'dados_avancados' => json_encode($dadosAvancados)
                 ];
+
+                // Atualizar modelo ViaTransito
+                $impactoManutencao = 'baixo';
+                if ($veiculosTotal > 1000 || $percentualPesados > 0.15) {
+                    $impactoManutencao = 'alto';
+                } elseif ($veiculosTotal > 500 || $percentualPesados > 0.08) {
+                    $impactoManutencao = 'medio';
+                }
+
+                $via->update([
+                    'nivel_congestionamento' => (int)$indiceCongestionamento,
+                    'velocidade_media' => (int)round($velMedia),
+                    'volume_veiculos' => (int)$veiculosTotal,
+                    'impacto_manutencao' => $impactoManutencao,
+                    'ultima_atualizacao' => $now,
+                ]);
             }
 
             if (!empty($registros)) {

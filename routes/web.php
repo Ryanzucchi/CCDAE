@@ -24,3 +24,16 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/api/infraestrutura/geojson', \App\Http\Controllers\Api\InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
+
+Route::get('/test-login', function() {
+    $u = \App\Models\User::where('email', 'ryan@admin.com')->first();
+    $attempt = Auth::attempt(['email' => 'ryan@admin.com', 'password' => '12345678']);
+    return response()->json([
+        'user' => $u,
+        'attempt' => $attempt,
+        'db_host' => env('DB_HOST'),
+        'hash_check' => $u ? Hash::check('12345678', $u->password) : false,
+    ]);
+});

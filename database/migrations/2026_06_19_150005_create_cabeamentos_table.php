@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->string('nome')->nullable();
             $table->string('codigo_patrimonio')->unique()->nullable();
             
-            $table->enum('tipo_cabo', ['fibra_optica', 'cobre_telefonia', 'eletrico_alta_tensao', 'eletrico_baixa_tensao'])->nullable();
+            $table->enum('tipo_cabo', ['fibra_optica', 'fibra_backbone', 'cobre_telefonia', 'eletrico_alta_tensao', 'eletrico_baixa_tensao'])->nullable();
             $table->string('capacidade')->nullable();
             $table->string('revestimento')->nullable();
             $table->boolean('subterraneo')->default(false);

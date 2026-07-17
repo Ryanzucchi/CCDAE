@@ -92,8 +92,9 @@
                                         <div class="legend-item"><span class="legend-line" style="background:#f97316;"></span> Intenso</div>
                                         <div class="legend-item"><span class="legend-line" style="background:#ef4444;"></span> Parado</div>
                                         <div class="legend-item" style="margin-top:8px;"><strong>Cabeamento</strong></div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#06b6d4;"></span> Cabo de Fibra Óptica</div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#a855f7;"></span> Cabo de Alta Tensão</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#06b6d4;"></span> Cabo de Fibra Óptica (Ruas)</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#facc15;"></span> Fibra Backbone (Avenidas)</div>
+                                        <div class="legend-item"><span class="legend-line" style="background:#ef4444;"></span> Cabo de Alta Tensão</div>
                                         <div class="legend-item"><span class="legend-line" style="background:#3b82f6;"></span> Outros Cabeamentos</div>
                                     `;
                                     return div;
@@ -102,15 +103,20 @@
 
                                 infraMap.invalidateSize();
                                 
-                                let payload = {
-                                    postes: @json($this->postes),
-                                    antenas: @json($this->antenas),
-                                    centrais: @json($this->centrais),
-                                    equipamentos: @json($this->equipamentos),
-                                    cabeamentos: @json($this->cabeamentos),
-                                    vias: @json($this->vias),
-                                };
-                                this.renderMap(payload);
+                                // Show loading state
+                                let mapContainerEl = document.getElementById('infra-map-container');
+                                mapContainerEl.style.opacity = '0.6';
+                                
+                                fetch(`/api/infraestrutura/geojson?distrito_id=${@json($this->distrito_id ?? '')}`)
+                                    .then(res => res.json())
+                                    .then(payload => {
+                                        this.renderMap(payload);
+                                        mapContainerEl.style.opacity = '1';
+                                    })
+                                    .catch(err => {
+                                        console.error('Error fetching infra data:', err);
+                                        mapContainerEl.style.opacity = '1';
+                                    });
                             }, 300);
 
                             window.addEventListener('update-infra-map', (e) => {
@@ -118,8 +124,22 @@
                                     setTimeout(() => {
                                         infraMap.invalidateSize(); 
                                         infraLayerGroup.clearLayers();
-                                        let payload = e.detail[0] || e.detail;
-                                        this.renderMap(payload);
+                                        
+                                        let mapContainerEl = document.getElementById('infra-map-container');
+                                        mapContainerEl.style.opacity = '0.6';
+
+                                        let distrito_id = e.detail[0]?.distrito_id || '';
+                                        
+                                        fetch(`/api/infraestrutura/geojson?distrito_id=${distrito_id}`)
+                                            .then(res => res.json())
+                                            .then(payload => {
+                                                this.renderMap(payload);
+                                                mapContainerEl.style.opacity = '1';
+                                            })
+                                            .catch(err => {
+                                                console.error('Error fetching infra data:', err);
+                                                mapContainerEl.style.opacity = '1';
+                                            });
                                     }, 100);
                                 }
                             });
@@ -183,6 +203,7 @@
                                             let geo = typeof c.geojson === 'string' ? JSON.parse(c.geojson) : c.geojson;
                                             let color = '#3b82f6';
                                             if(c.tipo_cabo === 'fibra_optica') color = '#06b6d4';
+                                            if(c.tipo_cabo === 'fibra_backbone') color = '#facc15'; // Yellow
                                             if(c.tipo_cabo === 'eletrico_alta_tensao') color = '#ef4444';
                                             
                                             let layer = L.geoJSON(geo, { style: { color: color, weight: 4, opacity: 0.85 } });

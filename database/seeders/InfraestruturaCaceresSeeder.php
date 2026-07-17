@@ -16,7 +16,7 @@ class InfraestruturaCaceresSeeder extends Seeder
 {
     public function run()
     {
-        $this->command->info('Limpando infraestrutura antiga...');
+        $this->command->info('Apagando infraestrutura antiga (preservando ruas)...');
         DB::statement('SET session_replication_role = replica;');
         Cabeamento::truncate();
         EquipamentoInfraestrutura::truncate();
@@ -31,173 +31,173 @@ class InfraestruturaCaceresSeeder extends Seeder
             return;
         }
 
-        $this->command->info('Gerando Infraestrutura baseada em ' . $vias->count() . ' vias...');
+        $this->command->info('Reconstruindo malha com rigor espacial (Aguarde alguns minutos)...');
 
-        // 1. Criar Central de Internet e Subestação Elétrica (1 de cada para a cidade, fora da rua)
-        $primeiraVia = $vias->first();
-        $baseCoord = $this->getFirstCoord($primeiraVia);
-        $latCentral = $baseCoord[1] + 0.005; 
-        $lngCentral = $baseCoord[0] + 0.005;
+        $allPostesSpatial = []; 
+        $centralCriada = false;
 
-        $centralEletrica = CentralDistribuicao::create([
-            'nome' => 'Subestação Elétrica Principal',
-            'codigo_patrimonio' => 'SUB-01',
-            'tipo' => 'Energia',
-            'capacidade' => '138kV',
-            'latitude' => $latCentral,
-            'longitude' => $lngCentral,
-        ]);
+        // Contadores para otimizacao de memoria
+        $postesBuffer = [];
+        $cabosBuffer = [];
+        $equipamentosBuffer = [];
 
-        $centralInternet = CentralDistribuicao::create([
-            'nome' => 'Datacenter / Central Telecom',
-            'codigo_patrimonio' => 'DC-01',
-            'tipo' => 'Telecom',
-            'capacidade' => '100Gbps',
-            'latitude' => $latCentral + 0.001,
-            'longitude' => $lngCentral + 0.001,
-        ]);
+        activity()->withoutLogs(function () use ($vias, &$allPostesSpatial, &$centralCriada) {
+            foreach ($vias as $via) {
+                $coords = $this->extractCoordinates($via);
+                if (empty($coords)) continue;
 
-        $pops = [];
-        $ctos = [];
+                $pontos = $this->generatePointsAlongLine($coords, 25);
+                $postesNaVia = [];
 
-        foreach ($vias as $via) {
-            $coords = $this->extractCoordinates($via);
-            if (empty($coords)) continue;
+                foreach ($pontos as $index => $pt) {
+                    $lado = $index % 2 == 0 ? 'Direito' : 'Esquerdo';
 
-            $pontos = $this->generatePointsAlongLine($coords, 25);
-            $postesNaVia = [];
-
-            // A cada aprox 20 vias, criar um POP
-            if (rand(1, 20) == 1 || empty($pops)) {
-                $popLat = $pontos[0][1] + 0.0002;
-                $popLng = $pontos[0][0] + 0.0002;
-                $pop = CentralDistribuicao::create([
-                    'nome' => 'POP Telecom ' . Str::random(3),
-                    'codigo_patrimonio' => 'POP-' . Str::random(5),
-                    'tipo' => 'POP',
-                    'latitude' => $popLat,
-                    'longitude' => $popLng,
-                    'distrito_id' => $via->distrito_id,
-                ]);
-                $pops[] = $pop;
-                
-                // Conectar POP ao Datacenter (Backbone)
-                $this->criarCabo($centralInternet, $pop, 'fibra_optica', 'Backbone');
-            }
-
-            foreach ($pontos as $index => $pt) {
-                // Alternar lado da rua
-                $lado = $index % 2 == 0 ? 'Direito' : 'Esquerdo';
-
-                $poste = Poste::create([
-                    'distrito_id' => $via->distrito_id,
-                    'codigo_patrimonio' => 'P-' . strtoupper(Str::random(6)),
-                    'material' => collect(['concreto', 'concreto', 'madeira', 'ferro', 'fibra'])->random(),
-                    'altura_metros' => rand(9, 12),
-                    'resistencia_kg' => rand(300, 600),
-                    'possui_iluminacao' => ($index % 2 == 0),
-                    'latitude' => $pt[1],
-                    'longitude' => $pt[0],
-                    'observacoes' => json_encode([
-                        'rua' => $via->nome,
-                        'numero_sequencial' => $index + 1,
-                        'lado_rua' => $lado,
-                        'fases' => collect(['A', 'B', 'C', 'AB', 'ABC'])->random(),
-                        'tensao' => '13.8kV / 220V',
-                    ])
-                ]);
-                $postesNaVia[] = $poste;
-
-                // Conectar ao poste anterior
-                if ($index > 0) {
-                    $this->criarCabo($postesNaVia[$index - 1], $poste, 'eletrico_baixa_tensao', 'Rede Secundária');
-                    $this->criarCabo($postesNaVia[$index - 1], $poste, 'fibra_optica', 'Rede de Distribuição Óptica');
-                }
-
-                // Gerar Medidores
-                $numCasas = rand(1, 4);
-                for ($c = 0; $c < $numCasas; $c++) {
-                    EquipamentoInfraestrutura::create([
-                        'poste_id' => $poste->id,
-                        'nome' => 'Medidor de Energia Residencial',
-                        'tipo' => 'Medidor',
+                    static $posteCounter = 0;
+                    $posteCounter++;
+                    $poste = Poste::create([
+                        'distrito_id' => $via->distrito_id,
+                        'codigo_patrimonio' => 'P-' . strtoupper(Str::random(5)) . '-' . $posteCounter,
+                        'material' => collect(['concreto', 'concreto', 'madeira', 'ferro', 'fibra'])->random(),
+                        'altura_metros' => rand(9, 12),
+                        'resistencia_kg' => rand(300, 600),
+                        'possui_iluminacao' => ($index % 2 == 0),
+                        'latitude' => $pt[1],
+                        'longitude' => $pt[0],
                         'observacoes' => json_encode([
-                            'consumo_medio_kwh' => rand(100, 500),
-                            'responsavel' => 'Imóvel ' . Str::random(4),
-                            'fase' => collect(['A', 'B', 'C'])->random()
+                            'via' => $via->nome,
+                            'numero' => $index + 1,
+                            'lado' => $lado
                         ])
                     ]);
+                    $postesNaVia[] = $poste;
+
+                    // Indexar poste espacialmente (grid de ~100m)
+                    $gridKey = round($pt[1], 3) . '_' . round($pt[0], 3);
+                    if (!isset($allPostesSpatial[$gridKey])) $allPostesSpatial[$gridKey] = [];
+                    $allPostesSpatial[$gridKey][] = $poste;
+
+                    // CABEAMENTO: Somente entre poste atual e anterior DA MESMA RUA
+                    // Isso garante 100% que o cabo segue o traçado da via e nunca corta quadras.
+                    if ($index > 0) {
+                        // Backbone em Avenidas Principais (simulado por via mais longas ou nome)
+                        $isAvenida = stripos($via->nome, 'Av') !== false;
+                        $tipoFibra = $isAvenida ? 'fibra_backbone' : 'fibra_optica';
+
+                        $this->criarCabo($postesNaVia[$index - 1], $poste, 'eletrico_baixa_tensao', 'Rede Secundária (Via)');
+                        $this->criarCabo($postesNaVia[$index - 1], $poste, $tipoFibra, 'Cabo Óptico (Via)');
+                    }
+
+                    // EQUIPAMENTOS
+
+                    // 1. Medidores e Ligações Residenciais (cada poste atende as casas da frente)
+                    $numCasas = rand(1, 4);
+                    for ($c = 0; $c < $numCasas; $c++) {
+                        EquipamentoInfraestrutura::create([
+                            'poste_id' => $poste->id,
+                            'nome' => 'Medidor ' . Str::random(4),
+                            'tipo' => 'Medidor',
+                            'latitude' => $pt[1] + (mt_rand(-5,5)/100000), // recuo da casa
+                            'longitude' => $pt[0] + (mt_rand(-5,5)/100000),
+                            'observacoes' => json_encode(['consumo' => rand(100,500) . 'kWh'])
+                        ]);
+                    }
+
+                    // 2. Transformador (Aprox 1 a cada 12 postes = 3 a 4 quadras)
+                    if ($index > 0 && $index % 12 == 0) {
+                        EquipamentoInfraestrutura::create([
+                            'poste_id' => $poste->id,
+                            'nome' => 'Transformador ' . rand(30, 112) . 'kVA',
+                            'tipo' => 'Transformador',
+                        ]);
+                    }
+
+                    // 3. CTO (Aprox 1 a cada 4 postes = atende ~12 residencias)
+                    if ($index > 0 && $index % 4 == 0) {
+                        EquipamentoInfraestrutura::create([
+                            'poste_id' => $poste->id,
+                            'nome' => 'CTO Óptica 16',
+                            'tipo' => 'CTO',
+                            'observacoes' => json_encode(['ocupacao' => rand(2,16)])
+                        ]);
+                    }
+
+                    // 4. Caixa de Emenda e Armários
+                    if ($index > 0 && $index % 8 == 0) {
+                        EquipamentoInfraestrutura::create(['poste_id' => $poste->id, 'nome' => 'CEO - Caixa de Emenda', 'tipo' => 'Caixa_Emenda']);
+                    }
+                    if ($index > 0 && $index % 15 == 0) {
+                        EquipamentoInfraestrutura::create(['poste_id' => $poste->id, 'nome' => 'Armário Telefônico', 'tipo' => 'Telefonia']);
+                    }
                 }
 
-                // Transformador a cada ~12 postes
-                if ($index % 12 == 0) {
-                    EquipamentoInfraestrutura::create([
-                        'poste_id' => $poste->id,
-                        'nome' => 'Transformador ' . rand(15, 112) . 'kVA',
-                        'tipo' => 'Transformador',
-                        'observacoes' => json_encode([
-                            'carga_maxima' => '112kVA',
-                            'capacidade_utilizada' => rand(40, 90) . '%',
-                            'bairros_atendidos' => [$via->distrito->nome ?? 'Centro'],
-                            'circuito' => 'C-' . rand(1, 10)
-                        ])
-                    ]);
-                    // Conecta Transformador à Subestação (Alta Tensão)
-                    $this->criarCabo($centralEletrica, $poste, 'eletrico_alta_tensao', 'Alimentador Primário');
+                // CRIAR CENTRAL E POP
+                if (count($postesNaVia) > 0) {
+                    if (!$centralCriada) {
+                        $centralCriada = true;
+                        $primeiro = $postesNaVia[0];
+                        $subestacao = CentralDistribuicao::create([
+                            'nome' => 'Subestação Principal Elétrica',
+                            'tipo' => 'Energia',
+                            'latitude' => $primeiro->latitude + 0.0002, // Fora da rua (terreno próprio)
+                            'longitude' => $primeiro->longitude + 0.0002,
+                        ]);
+                        $datacenter = CentralDistribuicao::create([
+                            'nome' => 'DataCenter / Central Telecom',
+                            'tipo' => 'Telecom',
+                            'latitude' => $primeiro->latitude + 0.0002,
+                            'longitude' => $primeiro->longitude - 0.0002,
+                        ]);
+                        // Liga centrais ao poste principal (entrada na malha viária)
+                        $this->criarCabo($subestacao, $primeiro, 'eletrico_alta_tensao', 'Alimentador Primário');
+                        $this->criarCabo($datacenter, $primeiro, 'fibra_backbone', 'Saída Datacenter');
+                    }
+
+                    // Distribui um POP aleatoriamente (fora da rua)
+                    if (rand(1, 40) == 1) {
+                        $popPoste = $postesNaVia[array_rand($postesNaVia)];
+                        $pop = CentralDistribuicao::create([
+                            'nome' => 'POP Telecom ' . Str::random(3),
+                            'tipo' => 'POP',
+                            'latitude' => $popPoste->latitude - 0.0001,
+                            'longitude' => $popPoste->longitude - 0.0001,
+                        ]);
+                        $this->criarCabo($pop, $popPoste, 'fibra_backbone', 'Ligação POP -> Poste');
+                    }
                 }
 
-                // CTO a cada ~4 postes
-                if ($index % 4 == 0) {
-                    $cto = EquipamentoInfraestrutura::create([
-                        'poste_id' => $poste->id,
-                        'nome' => 'CTO Óptica 16 portas',
-                        'tipo' => 'CTO',
-                        'observacoes' => json_encode([
-                            'clientes_conectados' => rand(2, 16),
-                            'velocidade_maxima' => '1000Mbps',
-                            'provedor' => collect(['Provedor A', 'Provedor B', 'Nacional'])->random()
-                        ])
-                    ]);
-                    $ctos[] = $cto;
-                }
-
-                // Caixa de Emenda
-                if ($index > 0 && $index % 8 == 0) {
-                    EquipamentoInfraestrutura::create([
-                        'poste_id' => $poste->id,
-                        'nome' => 'Caixa de Emenda Óptica (CEO)',
-                        'tipo' => 'Caixa_Emenda',
-                        'observacoes' => json_encode([
-                            'fibras_totais' => 144,
-                            'fibras_ocupadas' => rand(12, 100)
-                        ])
-                    ]);
-                }
-                
-                // Telefonia
-                if ($index % 10 == 0) {
-                    EquipamentoInfraestrutura::create([
-                        'poste_id' => $poste->id,
-                        'nome' => 'Armário Telefônico',
-                        'tipo' => 'Telefonia',
-                        'observacoes' => json_encode([
-                            'pares_disponiveis' => rand(10, 50),
-                        ])
-                    ]);
+                // CONEXÃO DE CRUZAMENTOS (Garante que a rede vira um Grafo Único sem linhas retas isoladas)
+                // Ligar as pontas da rua aos postes próximos (<40m) de outras ruas
+                if (count($postesNaVia) > 0) {
+                    $this->conectarCruzamento($postesNaVia[0], $allPostesSpatial);
+                    if (count($postesNaVia) > 1) {
+                        $this->conectarCruzamento($postesNaVia[count($postesNaVia)-1], $allPostesSpatial);
+                    }
                 }
             }
+        });
+    }
 
-            // Conectar CTOs aos POPs
-            if (count($pops) > 0 && count($ctos) > 0) {
-                $lastPop = $pops[array_rand($pops)];
-                foreach ($ctos as $cto) {
-                    $this->criarCabo($lastPop, $cto->poste, 'fibra_optica', 'Rede de Alimentação CTO');
-                }
-                $ctos = []; // Reseta pra proxima rua
+    private function conectarCruzamento($posteA, $grid) {
+        $key = round($posteA->latitude, 3) . '_' . round($posteA->longitude, 3);
+        if (!isset($grid[$key])) return;
+        
+        $closest = null;
+        $minD = 40; // max 40 metros para considerar um cruzamento de ruas
+        
+        foreach ($grid[$key] as $posteB) {
+            if ($posteB->id === $posteA->id || abs($posteA->id - $posteB->id) <= 2) continue; 
+            
+            $d = $this->distance($posteA->latitude, $posteA->longitude, $posteB->latitude, $posteB->longitude);
+            if ($d < $minD) {
+                $minD = $d;
+                $closest = $posteB;
             }
         }
         
-        $this->command->info('Infraestrutura gerada com sucesso respeitando a malha viária!');
+        if ($closest) {
+            $this->criarCabo($posteA, $closest, 'eletrico_baixa_tensao', 'Travessia de Cruzamento');
+            $this->criarCabo($posteA, $closest, 'fibra_optica', 'Travessia de Cruzamento');
+        }
     }
 
     private function criarCabo($origem, $destino, $tipoCabo, $nome)
@@ -209,7 +209,6 @@ class InfraestruturaCaceresSeeder extends Seeder
         $lon1 = $origem->longitude;
         $lat2 = $destino->latitude;
         $lon2 = $destino->longitude;
-        
         if (!$lat1 || !$lon1 || !$lat2 || !$lon2) return;
 
         $geojson = [
@@ -223,7 +222,7 @@ class InfraestruturaCaceresSeeder extends Seeder
         Cabeamento::create([
             $origemCol => $origem->id,
             $destinoCol => $destino->id,
-            'nome' => $nome . ' ' . Str::random(4),
+            'nome' => $nome,
             'tipo_cabo' => $tipoCabo,
             'extensao_metros' => $this->distance($lat1, $lon1, $lat2, $lon2),
             'geojson' => $geojson,
@@ -243,18 +242,9 @@ class InfraestruturaCaceresSeeder extends Seeder
     private function extractCoordinates($via) {
         $geo = $via->geojson;
         if (!$geo || !isset($geo['type'])) return [];
-        
-        if ($geo['type'] === 'LineString') {
-            return $geo['coordinates'];
-        } elseif ($geo['type'] === 'MultiLineString') {
-            return $geo['coordinates'][0] ?? [];
-        }
+        if ($geo['type'] === 'LineString') return $geo['coordinates'];
+        if ($geo['type'] === 'MultiLineString') return $geo['coordinates'][0] ?? [];
         return [];
-    }
-    
-    private function getFirstCoord($via) {
-        $coords = $this->extractCoordinates($via);
-        return $coords[0] ?? [-57.6836, -16.0744];
     }
 
     private function generatePointsAlongLine($coordinates, $interval = 25) {
@@ -266,7 +256,6 @@ class InfraestruturaCaceresSeeder extends Seeder
             $p2 = $coordinates[$i+1];
             
             $dist = $this->distance($p1[1], $p1[0], $p2[1], $p2[0]);
-            
             $remainingSegment = $dist;
             $currentLat = $p1[1];
             $currentLon = $p1[0];
@@ -275,21 +264,36 @@ class InfraestruturaCaceresSeeder extends Seeder
                 $walk = $interval - $accumulatedDistance;
                 $ratio = $dist > 0 ? $walk / $dist : 0; 
                 
-                $currentLat = $currentLat + ($p2[1] - $p1[1]) * $ratio;
-                $currentLon = $currentLon + ($p2[0] - $p1[0]) * $ratio;
+                $currentLat += ($p2[1] - $p1[1]) * $ratio;
+                $currentLon += ($p2[0] - $p1[0]) * $ratio;
                 
-                $points[] = [$currentLon, $currentLat];
+                // Deslocamento perpendicular para alternar calçadas
+                $shift = 0.00003; // ~3 metros
+                $dx = $p2[0] - $p1[0];
+                $dy = $p2[1] - $p1[1];
+                $len = sqrt($dx*$dx + $dy*$dy);
+                $finalLat = $currentLat;
+                $finalLon = $currentLon;
+                if ($len > 0) {
+                    $nx = -$dy / $len;
+                    $ny = $dx / $len;
+                    if (count($points) % 2 == 0) {
+                        $finalLon += $nx * $shift;
+                        $finalLat += $ny * $shift;
+                    } else {
+                        $finalLon -= $nx * $shift;
+                        $finalLat -= $ny * $shift;
+                    }
+                }
                 
+                $points[] = [$finalLon, $finalLat];
                 $remainingSegment -= $walk;
                 $accumulatedDistance = 0;
             }
-            
             $accumulatedDistance += $remainingSegment;
         }
         
-        if (empty($points) && count($coordinates) > 0) {
-            $points[] = $coordinates[0];
-        }
+        if (empty($points) && count($coordinates) > 0) $points[] = $coordinates[0];
         
         return $points;
     }

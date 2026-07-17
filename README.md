@@ -12,6 +12,13 @@ O **CCDAE** possui um objetivo central muito claro: **Prover visualização avan
 
 Através da convergência entre IoT, análise temporal e mapeamento georreferenciado, a plataforma permite a identificação proativa de falhas, análise de desgaste e mitigação de riscos estruturais nas cidades.
 
+## 📚 Documentação Técnica do Projeto
+
+- `ANALISE_PROJETO.md` — análise técnica consolidada do estado atual.
+- `DOCUMENTACAO_CAMADAS_CASOS_DE_USO.md` — documentação em camadas por caso de uso.
+- `GUIA_DESENVOLVIMENTO_SOFTWARE.md` — etapas de desenvolvimento, melhorias, ferramentas e próximos passos.
+- `AI_MODIFICACOES.md` — histórico de mudanças realizadas por IA.
+
 ## 🗺️ Roadmap e Módulos do Sistema V1
 
 O projeto é concebido em formato modular, garantindo expansão contínua para abranger todos os aspectos da infraestrutura urbana:

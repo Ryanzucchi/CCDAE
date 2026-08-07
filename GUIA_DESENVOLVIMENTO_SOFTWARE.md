@@ -65,9 +65,9 @@ Obrigatório:
 
 | Prioridade | Melhoria | Impacto | Esforço |
 |---|---|---|---|
-| Alta | Unificar o agendamento (hoje existe em `bootstrap/app.php` e `routes/console.php`) | Evita execução duplicada de jobs e inconsistências | Médio |
+| Alta | Unificar o agendamento (consolidar no arquivo `routes/console.php` via Facade `Schedule`) | Evita execução duplicada de jobs e inconsistências | Médio |
 | Alta | Expandir testes para jobs/comandos de clima, trânsito e geoespacial | Reduz risco em produção | Médio/Alto |
-| Alta | Padronizar ambiente (`.env.example` alinhado com PostgreSQL/Timescale do projeto) | Onboarding mais previsível | Baixo |
+| Alta | Padronizar ambiente (configurar `.env.example` pré-alinhado com PostgreSQL/Timescale no Docker e incluir `COLETA_DADOS_INTERVALO=20`) | Onboarding mais previsível | Baixo |
 | Média | Extrair regras de negócio longas dos jobs para serviços especializados | Melhor manutenção e testabilidade | Médio |
 | Média | Criar monitoração operacional externa (Sentry + métricas) além do painel | Observabilidade em produção | Médio |
 | Média | Fortalecer validações de GeoJSON e coordenadas de entrada | Integridade geoespacial | Médio |
@@ -101,8 +101,8 @@ Obrigatório:
 ## 4) Próximos passos objetivos
 
 ## Curto prazo (1-2 semanas)
-1. Unificar agendamento de jobs em uma única fonte de verdade.
-2. Atualizar `.env.example` para o banco padrão do projeto.
+1. Unificar agendamento de jobs no arquivo `routes/console.php` utilizando a Facade `Schedule` do Laravel (removendo a definição duplicada em `bootstrap/app.php`).
+2. Atualizar `.env.example` para usar `pgsql` com o host `postgres-ccdae` (Docker) e incluir a variável `COLETA_DADOS_INTERVALO=20`.
 3. Criar testes para `CollectClimateData` e `CollectTrafficData`.
 4. Criar teste do endpoint `/api/distritos/geojson`.
 

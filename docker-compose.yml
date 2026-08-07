@@ -10,7 +10,8 @@ services:
       - ./../storage/app/public:/var/www/html/public/storage
       - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - default
     restart: always
@@ -42,7 +43,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d data"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     networks:
       - default
     restart: always

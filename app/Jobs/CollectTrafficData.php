@@ -28,6 +28,7 @@ class CollectTrafficData implements ShouldQueue
         try {
             $now = Carbon::now();
             $registros = [];
+            $viasUpdates = [];
 
             foreach ($vias as $via) {
                 // Simulação baseada no limite de velocidade ou padrão
@@ -110,18 +111,24 @@ class CollectTrafficData implements ShouldQueue
                     $impactoManutencao = 'medio';
                 }
 
-                $via->update([
+                $viasUpdates[$via->id] = [
                     'nivel_congestionamento' => (int)$indiceCongestionamento,
                     'velocidade_media' => (int)round($velMedia),
                     'volume_veiculos' => (int)$veiculosTotal,
                     'impacto_manutencao' => $impactoManutencao,
                     'ultima_atualizacao' => $now,
-                ]);
+                ];
             }
 
-            if (!empty($registros)) {
-                DB::table('registro_transitos')->upsert($registros, ['via_transito_id', 'timestamp']);
-            }
+            DB::transaction(function () use ($registros, $viasUpdates) {
+                if (!empty($registros)) {
+                    DB::table('registro_transitos')->upsert($registros, ['via_transito_id', 'timestamp']);
+                }
+
+                foreach ($viasUpdates as $id => $updateData) {
+                    DB::table('via_transitos')->where('id', $id)->update($updateData);
+                }
+            });
 
             activity()
                 ->useLog('traffic_collection')

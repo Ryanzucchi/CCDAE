@@ -18,5 +18,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DistritosExcelSeeder::class,
         ]);
+
+        User::factory()->create([
+            'name' => 'Administrador',
+            'email' => 'admin@example.com',
+            'password' => bcrypt('password'),
+        ]);
     }
 }

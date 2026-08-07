@@ -16,12 +16,41 @@ class SyncTransitoRealCommand extends Command
     {
         $this->info('Iniciando sincronização de vias reais via OpenStreetMap (Overpass API)...');
 
+        $distritos = Distrito::all();
+        $lats = [];
+        $lons = [];
+
+        foreach ($distritos as $d) {
+            $lat = $d->latitude;
+            $lon = $d->longitude;
+
+            if (is_null($lat) || is_null($lon)) {
+                $geo = $d->geojson;
+                if ($geo && isset($geo['type'])) {
+                    if ($geo['type'] === 'Polygon' && isset($geo['coordinates'][0][0])) {
+                        $lon = $geo['coordinates'][0][0][0];
+                        $lat = $geo['coordinates'][0][0][1];
+                    } elseif ($geo['type'] === 'MultiPolygon' && isset($geo['coordinates'][0][0][0])) {
+                        $lon = $geo['coordinates'][0][0][0][0];
+                        $lat = $geo['coordinates'][0][0][0][1];
+                    }
+                }
+            }
+
+            if (!is_null($lat) && !is_null($lon)) {
+                $d->latitude = (float)$lat;
+                $d->longitude = (float)$lon;
+                $lats[] = (float)$lat;
+                $lons[] = (float)$lon;
+            }
+        }
+
         // Bounding box aproximado de Cáceres MT focado nos distritos (aprox)
         // bbox: min_lon, min_lat, max_lon, max_lat
-        $minLat = Distrito::min('latitude') - 0.05;
-        $maxLat = Distrito::max('latitude') + 0.05;
-        $minLon = Distrito::min('longitude') - 0.05;
-        $maxLon = Distrito::max('longitude') + 0.05;
+        $minLat = (!empty($lats) ? min($lats) : -16.07) - 0.05;
+        $maxLat = (!empty($lats) ? max($lats) : -16.07) + 0.05;
+        $minLon = (!empty($lons) ? min($lons) : -57.68) - 0.05;
+        $maxLon = (!empty($lons) ? max($lons) : -57.68) + 0.05;
 
         $bbox = "{$minLat},{$minLon},{$maxLat},{$maxLon}";
 
@@ -32,28 +61,48 @@ class SyncTransitoRealCommand extends Command
         );
         out geom;";
 
-        $this->info('Consultando Overpass API...');
-        
         try {
-            $response = Http::timeout(120)->withHeaders([
-                'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
-                'Accept' => '*/*'
-            ])->asForm()->post('https://z.overpass-api.de/api/interpreter', [
-                'data' => $query
-            ]);
+            $endpoints = [
+                'https://overpass-api.de/api/interpreter',
+                'https://overpass.kumi.systems/api/interpreter',
+                'https://z.overpass-api.de/api/interpreter'
+            ];
 
-            if (!$response->successful()) {
-                $this->error('Erro ao conectar na Overpass API: ' . $response->status());
-                $this->error('Resposta: ' . substr($response->body(), 0, 500));
-                return;
+        $response = null;
+        $success = false;
+
+        foreach ($endpoints as $url) {
+            $this->info("Tentando Overpass API: {$url}...");
+            try {
+                $response = Http::timeout(40)->withHeaders([
+                    'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
+                    'Accept' => '*/*'
+                ])->asForm()->post($url, [
+                    'data' => $query
+                ]);
+
+                if ($response->successful()) {
+                    $success = true;
+                    break;
+                } else {
+                    $this->warn("Erro no endpoint {$url}: " . $response->status());
+                }
+            } catch (\Throwable $t) {
+                $this->warn("Falha de conexão com {$url}: " . $t->getMessage());
             }
+        }
 
-            $data = $response->json();
+        if (!$success || is_null($response)) {
+            $this->error('Todos os endpoints do Overpass API falharam.');
+            return;
+        }
 
-            if (!isset($data['elements'])) {
-                $this->error('Nenhum dado retornado da API.');
-                return;
-            }
+        $data = $response->json();
+
+        if (!isset($data['elements'])) {
+            $this->error('Nenhum dado retornado da API.');
+            return;
+        }
 
             $elements = $data['elements'];
             $this->info('Vias encontradas: ' . count($elements));
@@ -61,7 +110,6 @@ class SyncTransitoRealCommand extends Command
             // Limpar vias antigas geradas randomicamente
             ViaTransito::truncate();
 
-            $distritos = Distrito::all();
             $inseridos = 0;
 
             $bar = $this->output->createProgressBar(count($elements));

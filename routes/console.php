@@ -12,8 +12,15 @@ use App\Jobs\CollectClimateData;
 
 Schedule::command('climate:sanitize')->dailyAt('02:00');
 
-$intervalo = env('COLETA_DADOS_INTERVALO', 20);
+$intervalo = max(1, min(59, (int) env('COLETA_DADOS_INTERVALO', 20)));
 
-// Agenda as coletas baseadas na variável global
-Schedule::job(new CollectTrafficData)->cron("*/{$intervalo} * * * *");
-Schedule::job(new CollectClimateData)->cron("*/{$intervalo} * * * *");
+// Único ponto de agendamento das coletas. Evita despachos duplicados.
+Schedule::job(new CollectTrafficData)
+    ->cron("*/{$intervalo} * * * *")
+    ->name('collect-traffic-data')
+    ->withoutOverlapping();
+
+Schedule::job(new CollectClimateData)
+    ->cron("*/{$intervalo} * * * *")
+    ->name('collect-climate-data')
+    ->withoutOverlapping();

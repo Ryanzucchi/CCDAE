@@ -22,16 +22,33 @@ class MapaClima extends Page
         return collect($this->climaTimeline)->last()['data'] ?? [];
     }
 
+    public function getClimaMapDataProperty(): array
+    {
+        return Distrito::query()->get()->map(fn (Distrito $d) => [
+            'id' => $d->id,
+            'nome' => $d->nome,
+            'latitude' => (float) ($d->latitude ?: -16.070830),
+            'longitude' => (float) ($d->longitude ?: -57.687500),
+            'geojson' => $d->geojson,
+        ])->all();
+    }
+
     public function getClimaTimelineProperty(): array
     {
         $since = now()->subHours(24);
+        $until = now()->endOfMinute();
         $distritos = Distrito::query()->get()->keyBy('id');
         $timestamps = DB::table('temperatura_registrada')
             ->where('timestamp', '>=', $since)
+            ->where('timestamp', '<=', $until)
             ->orderBy('timestamp')
             ->pluck('timestamp')
             ->map(fn ($timestamp) => Carbon::parse($timestamp)->format('Y-m-d H:i'))
             ->unique()
+            ->groupBy(fn (string $timestamp) => substr($timestamp, 0, 13))
+            ->map(fn ($hour) => $hour->last())
+            ->values()
+            ->take(-24)
             ->values();
 
         if ($timestamps->isEmpty()) {
@@ -52,6 +69,7 @@ class MapaClima extends Page
         foreach ($sources as $metric => [$table, $columns]) {
             $rows = DB::table($table)
                 ->where('timestamp', '>=', $since)
+                ->where('timestamp', '<=', $until)
                 ->get(array_merge(['distrito_id', 'timestamp'], $columns));
 
             foreach ($rows as $row) {
@@ -72,10 +90,6 @@ class MapaClima extends Page
 
                 return [
                     'id' => $d->id,
-                    'nome' => $d->nome,
-                    'latitude' => (float) ($d->latitude ?: -16.070830),
-                    'longitude' => (float) ($d->longitude ?: -57.687500),
-                    'geojson' => $d->geojson,
                     'temperatura' => $temp?->temperatura,
                     'sensacao_termica' => $temp?->sensacao_termica,
                     'vento_velocidade' => $vento?->velocidade,

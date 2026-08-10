@@ -30,6 +30,9 @@ class CollectClimateData implements ShouldQueue
 
     protected function processBatch($distritos)
     {
+        // A API pode repetir o mesmo `current.time` durante toda a hora. A série
+        // histórica deve representar o instante da coleta feita pelo CCDAE.
+        $collectedAt = Carbon::now()->startOfMinute();
         $lats = $distritos->pluck('latitude')->implode(',');
         $lons = $distritos->pluck('longitude')->implode(',');
 
@@ -165,7 +168,7 @@ class CollectClimateData implements ShouldQueue
 
                 if ($weather && isset($weather['current'])) {
                     $wCurrent = $weather['current'];
-                    $timestamp = Carbon::parse($wCurrent['time']);
+                    $timestamp = $collectedAt;
 
                     $temps[] = [
                         'distrito_id' => $distrito->id,
@@ -208,7 +211,7 @@ class CollectClimateData implements ShouldQueue
 
                 if ($aq && isset($aq['current'])) {
                     $aqCurrent = $aq['current'];
-                    $timestamp = Carbon::parse($aqCurrent['time']);
+                    $timestamp = $collectedAt;
                     $dustVal = $aqCurrent['dust'] ?? 0;
 
                     $particles[] = [
@@ -248,6 +251,15 @@ class CollectClimateData implements ShouldQueue
             activity()
                 ->useLog('climate_collection')
                 ->log("Coletados dados meteorológicos completos para " . count($distritos) . " distritos.");
+
+            Log::info('Coleta climática persistida', [
+                'timestamp_coleta' => $collectedAt->toDateTimeString(),
+                'distritos' => count($distritos),
+                'temperaturas' => count($temps),
+                'ventos' => count($winds),
+                'chuvas' => count($rains),
+                'qualidade_ar' => count($particles),
+            ]);
 
             // Apenas dorme se chamamos a API externa de fato, para não atrasar a simulação
             if (($weatherResponse && $weatherResponse->successful()) || ($aqResponse && $aqResponse->successful())) {

@@ -1,177 +1,130 @@
 <x-filament-panels::page>
+    @vite('resources/js/maps/traffic-map.js')
+
     <style>
-        .leaflet-pane svg,
-        .leaflet-pane canvas {
-            max-width: none !important;
-            display: block !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-            z-index: 9999 !important;
-        }
-        .leaflet-pane path {
-            pointer-events: visiblePainted !important;
-        }
-        .leaflet-overlay-pane { z-index: 9999 !important; }
-        .leaflet-popup-pane { z-index: 10000 !important; }
-        
-        .map-legend {
-            background: rgba(17, 24, 39, 0.9);
-            color: #f3f4f6;
+        .ccdae-traffic-legend {
             padding: 12px;
             border-radius: 8px;
             font-size: 13px;
             line-height: 1.5;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
-        .legend-line { width: 20px; height: 3px; margin-right: 8px; display: inline-block; }
+
+        .ccdae-traffic-legend div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .ccdae-traffic-legend span {
+            display: inline-block;
+            width: 20px;
+            height: 3px;
+        }
+
+        .ccdae-traffic-popup strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .traffic-timeline { margin-top: 16px; overflow: hidden; border: 1px solid rgba(17,24,39,.1); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+        .traffic-timeline-layout { display: grid; grid-template-columns: auto minmax(150px,220px) minmax(280px,1fr) minmax(120px,auto); align-items: center; gap: 20px; padding: 18px 20px; }
+        .traffic-timeline-play { display:flex; align-items:center; justify-content:center; min-width:96px; height:42px; padding:0 16px; border:0; border-radius:9999px; background:rgb(var(--primary-600)); color:#fff; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.16); font-size:12px; font-weight:700; }
+        .traffic-timeline-play svg { width:18px !important; height:18px !important; }
+        .traffic-timeline-title { font-size:14px; font-weight:700; color:#111827; }
+        .traffic-timeline-subtitle, .traffic-timeline-labels, .traffic-timeline-selected-label { color:#6b7280; }
+        .traffic-timeline-subtitle { margin-top:3px; font-size:12px; }
+        .traffic-timeline-labels { display:flex; justify-content:space-between; margin-bottom:9px; font-size:11px; font-weight:600; }
+        .traffic-timeline-range { width:100%; height:8px; appearance:none; border-radius:9999px; outline:none; cursor:pointer; }
+        .traffic-timeline-range::-webkit-slider-thumb { width:20px; height:20px; appearance:none; border:3px solid #fff; border-radius:50%; background:rgb(var(--primary-600)); box-shadow:0 0 10px rgba(59,130,246,.5); }
+        .traffic-timeline-range::-moz-range-thumb { width:14px; height:14px; border:3px solid #fff; border-radius:50%; background:rgb(var(--primary-600)); }
+        .traffic-timeline-selected { padding-left:18px; border-left:1px solid #e5e7eb; text-align:right; }
+        .traffic-timeline-selected-label { display:block; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+        .traffic-timeline-selected-value { display:block; margin-top:4px; font-size:15px; color:#111827; white-space:nowrap; }
+        .dark .traffic-timeline { background:rgb(17 24 39); border-color:rgba(255,255,255,.1); }
+        .dark .traffic-timeline-title, .dark .traffic-timeline-selected-value { color:#fff; }
+        .dark .traffic-timeline-subtitle, .dark .traffic-timeline-labels, .dark .traffic-timeline-selected-label { color:#9ca3af; }
+        .dark .traffic-timeline-selected { border-color:rgba(255,255,255,.1); }
+        @media (max-width: 900px) {
+            .traffic-timeline-layout { grid-template-columns:auto 1fr auto; gap:14px; }
+            .traffic-timeline-control { grid-column:1 / -1; grid-row:2; }
+        }
     </style>
-    
+
     <x-filament::section>
-        <div class="mb-4 max-w-sm flex gap-4">
+        <div>
+        <div class="mb-4 flex max-w-sm gap-4">
             <x-filament::input.wrapper class="w-full">
                 <x-filament::input.select wire:model.live="distrito_id">
-                    <option value="">🌎 Ver Todos os Distritos (Visão Macro)</option>
+                    <option value="">Ver todos os distritos (visão macro)</option>
                     @foreach($this->distritos as $id => $nome)
-                        <option value="{{ $id }}">📍 {{ $nome }}</option>
+                        <option value="{{ $id }}">{{ $nome }}</option>
                     @endforeach
                 </x-filament::input.select>
             </x-filament::input.wrapper>
         </div>
 
-        <div wire:ignore style="position: relative; border-radius: 0.5rem; overflow: hidden; height: 750px;">
-            <div id="transito-map-container" x-data="transitoMapPage" x-init="init()" style="width: 100%; height: 100%; z-index: 10;"></div>
-            
-            <script>
-                let transitoMap = null;
-                let transitoLayerGroup = null;
+        <div wire:ignore class="ccdae-map-surface" style="height: 750px;">
+            <div
+                id="transito-map-container"
+                class="h-full w-full"
+                style="width: 100%; height: 100%;"
+                data-payload='@json(['vias' => $this->vias, 'distritos' => $this->distritos_geojson], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP)'
+                data-center='@json([-57.6806, -16.0722])'
+                data-zoom="13"
+                data-style-url="{{ config('maps.base_style_url') }}"
+                data-raster-tile-url="{{ config('maps.raster_tile_url') }}"
+                data-raster-dark-tile-url="{{ config('maps.raster_dark_tile_url') }}"
+                data-raster-attribution="{{ config('maps.raster_attribution') }}"
+                data-terrain-enabled="{{ config('maps.terrain.enabled') ? 'true' : 'false' }}"
+                data-terrain-tile-url="{{ config('maps.terrain.terrarium_tile_url') }}"
+                data-terrain-zoom="{{ config('maps.terrain.zoom') }}"
+                data-terrain-exaggeration="{{ config('maps.terrain.exaggeration') }}"
+                data-terrain-attribution="{{ config('maps.terrain.attribution') }}"
+                data-district-id="{{ $this->distrito_id }}"
+                data-martin-enabled="{{ config('maps.martin.enabled') ? 'true' : 'false' }}"
+                data-martin-tilejson-url="{{ config('maps.martin.tilejson_base_url') }}"
+            ></div>
 
-                document.addEventListener('alpine:init', () => {
-                    Alpine.data('transitoMapPage', () => ({
-                        init() {
-                            setTimeout(() => {
-                                let mapContainer = document.getElementById('transito-map-container');
-                                if (!mapContainer) return;
-                                
-                                if (transitoMap !== null) {
-                                    transitoMap.remove();
-                                    transitoMap = null;
-                                } else if (mapContainer._leaflet_id) {
-                                    mapContainer._leaflet_id = null;
-                                }
+            <div class="ccdae-map-panel ccdae-traffic-legend absolute bottom-8 right-3 z-10">
+                <strong>Fluxo de Trânsito</strong>
+                <div><span style="background:#22c55e"></span>Via livre (&gt; 40 km/h)</div>
+                <div><span style="background:#eab308"></span>Moderado (20–40 km/h)</div>
+                <div><span style="background:#f97316"></span>Intenso (10–20 km/h)</div>
+                <div><span style="background:#ef4444"></span>Parado (&lt; 10 km/h)</div>
+                <div class="opacity-60"><span style="background:#6b7280"></span>Fronteira do distrito</div>
+            </div>
+        </div>
 
-                                transitoMap = L.map('transito-map-container', {
-                                    preferCanvas: true,
-                                    zoomAnimation: false,
-                                    fadeAnimation: false
-                                }).setView([-16.0722, -57.6806], 13); // Cáceres center default
-
-                                transitoLayerGroup = L.featureGroup().addTo(transitoMap);
-
-                                // Dark mode premium tile layer
-                                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                                    attribution: '&copy; OpenStreetMap &copy; CARTO'
-                                }).addTo(transitoMap);
-
-                                // Adicionar a legenda
-                                let legend = L.control({position: 'bottomright'});
-                                legend.onAdd = function (map) {
-                                    let div = L.DomUtil.create('div', 'map-legend');
-                                    div.innerHTML = `
-                                        <strong>Fluxo de Trânsito</strong><br>
-                                        <div class="legend-item" style="margin-top:8px;"><span class="legend-line" style="background:#22c55e;"></span> Via Livre (&gt; 40 km/h)</div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#eab308;"></span> Moderado (20-40 km/h)</div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#f97316;"></span> Intenso (10-20 km/h)</div>
-                                        <div class="legend-item"><span class="legend-line" style="background:#ef4444;"></span> Parado (&lt; 10 km/h)</div>
-                                        <div class="legend-item" style="margin-top:8px; opacity:0.6"><span class="legend-line" style="background:#4b5563;"></span> Fronteira do Distrito</div>
-                                    `;
-                                    return div;
-                                };
-                                legend.addTo(transitoMap);
-
-                                transitoMap.invalidateSize();
-                                
-                                let payload = {
-                                    vias: @json($this->vias),
-                                    distritos: @json($this->distritos_geojson),
-                                };
-                                this.renderMap(payload);
-                            }, 300);
-
-                            window.addEventListener('update-transito-map', (e) => {
-                                if(transitoMap) {
-                                    setTimeout(() => {
-                                        transitoMap.invalidateSize(); 
-                                        transitoLayerGroup.clearLayers();
-                                        let payload = e.detail[0] || e.detail;
-                                        this.renderMap(payload);
-                                    }, 100);
-                                }
-                            });
-                        },
-
-                        renderMap(data) {
-                            let bounds = [];
-
-                            // Distritos boundaries (Background)
-                            if (data.distritos) {
-                                data.distritos.forEach(d => {
-                                    if (d.geojson) {
-                                        try {
-                                            let geo = typeof d.geojson === 'string' ? JSON.parse(d.geojson) : d.geojson;
-                                            let layer = L.geoJSON(geo, { 
-                                                style: { 
-                                                    color: '#4b5563', 
-                                                    weight: 1, 
-                                                    fillOpacity: 0.05, 
-                                                    dashArray: '5, 5' 
-                                                },
-                                                interactive: false // Don't trigger popups for background
-                                            });
-                                            transitoLayerGroup.addLayer(layer);
-                                        } catch(e) {}
-                                    }
-                                });
-                            }
-
-                            // Vias de Transito (Lines)
-                            if (data.vias) {
-                                data.vias.forEach(v => {
-                                    if (v.geojson) {
-                                        try {
-                                            let geo = typeof v.geojson === 'string' ? JSON.parse(v.geojson) : v.geojson;
-                                            
-                                            // Cores baseadas no congestionamento
-                                            let color = '#22c55e'; // Livre
-                                            if(v.nivel_congestionamento === 'moderado') color = '#eab308';
-                                            if(v.nivel_congestionamento === 'intenso') color = '#f97316';
-                                            if(v.nivel_congestionamento === 'parado') color = '#ef4444';
-                                            
-                                            let layer = L.geoJSON(geo, { style: { color: color, weight: 6, opacity: 0.9 } });
-                                            layer.bindPopup(`
-                                                <div style="font-family: sans-serif; font-size: 13px;">
-                                                    <b style="font-size: 15px;">Via: ${v.nome}</b><br><br>
-                                                    <b>Congestionamento:</b> <span style="color:${color}; font-weight:bold; text-transform:uppercase;">${v.nivel_congestionamento}</span><br>
-                                                    <b>Velocidade Média:</b> ${v.velocidade_media} km/h<br>
-                                                    <b>Impacto Logístico:</b> ${v.impacto_manutencao.toUpperCase()}<br>
-                                                </div>
-                                            `);
-                                            transitoLayerGroup.addLayer(layer);
-                                            let layerBounds = layer.getBounds();
-                                            bounds.push([layerBounds.getSouthWest().lat, layerBounds.getSouthWest().lng]);
-                                            bounds.push([layerBounds.getNorthEast().lat, layerBounds.getNorthEast().lng]);
-                                        } catch(e) {}
-                                    }
-                                });
-                            }
-
-                            if(bounds.length > 0) {
-                                transitoMap.fitBounds(bounds, { padding: [50, 50] });
-                            }
-                        }
-                    }))
-                });
-            </script>
+        <div class="traffic-timeline">
+            <div class="traffic-timeline-layout">
+                <button id="traffic-timeline-play" type="button" class="traffic-timeline-play" disabled>
+                    Reproduzir
+                </button>
+                <div>
+                    <div class="traffic-timeline-title">Histórico de trânsito</div>
+                    <div class="traffic-timeline-subtitle">Leituras das últimas 24 horas</div>
+                </div>
+                <div class="traffic-timeline-control">
+                    <div class="traffic-timeline-labels"><span>24 horas atrás</span><span>Agora</span></div>
+                    <input
+                        class="traffic-timeline-range"
+                        type="range"
+                        min="0"
+                        id="traffic-timeline-range"
+                        max="0"
+                        value="0"
+                        step="1"
+                        disabled
+                        aria-label="Horário da leitura de trânsito"
+                    >
+                </div>
+                <div class="traffic-timeline-selected">
+                    <span class="traffic-timeline-selected-label">Leitura selecionada</span>
+                    <strong id="traffic-timeline-selected" class="traffic-timeline-selected-value">Carregando...</strong>
+                </div>
+            </div>
+        </div>
         </div>
     </x-filament::section>
 </x-filament-panels::page>

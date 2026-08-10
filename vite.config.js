@@ -1,10 +1,33 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
+import { readFileSync } from 'node:fs';
+
+function maplibreWorkerDependencies() {
+    return {
+        name: 'maplibre-worker-dependencies',
+        generateBundle() {
+            this.emitFile({
+                type: 'asset',
+                fileName: 'assets/maplibre-gl-shared.mjs',
+                source: readFileSync(new URL('./node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs', import.meta.url)),
+            });
+        },
+    };
+}
 
 export default defineConfig({
     plugins: [
+        maplibreWorkerDependencies(),
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
+            input: [
+                'resources/css/app.css',
+                'resources/js/app.js',
+                'resources/js/maps/districts-map.js',
+                'resources/js/maps/districts-widget-map.js',
+                'resources/js/maps/traffic-map.js',
+                'resources/js/maps/infrastructure-map.js',
+                'resources/js/maps/climate-map.js',
+            ],
             refresh: true,
         }),
     ],

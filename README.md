@@ -12,14 +12,14 @@ O **CCDAE** possui um objetivo central muito claro: **Prover visualização avan
 
 Através da convergência entre IoT, análise temporal e mapeamento georreferenciado, a plataforma permite a identificação proativa de falhas, análise de desgaste e mitigação de riscos estruturais nas cidades.
 
-## 📚 Documentação Técnica do Projeto
+## Documentação Técnica do Projeto
 
 - `ANALISE_PROJETO.md` — análise técnica consolidada do estado atual.
 - `DOCUMENTACAO_CAMADAS_CASOS_DE_USO.md` — documentação em camadas por caso de uso.
 - `GUIA_DESENVOLVIMENTO_SOFTWARE.md` — etapas de desenvolvimento, melhorias, ferramentas e próximos passos.
 - `AI_MODIFICACOES.md` — histórico de mudanças realizadas por IA.
 
-## 🗺️ Roadmap e Módulos do Sistema V1
+## Roadmap e Módulos do Sistema V1
 
 O projeto é concebido em formato modular, garantindo expansão contínua para abranger todos os aspectos da infraestrutura urbana:
 
@@ -34,34 +34,34 @@ O projeto é concebido em formato modular, garantindo expansão contínua para a
 
 ---
 
-## 🚀 Arquitetura e Tecnologias
+## Arquitetura e Tecnologias
 
 A aplicação utiliza uma stack moderna focada em escalabilidade para grande volume de séries temporais (IoT) e renderização reativa:
 
-### ⚙️ Back-end & Infraestrutura
+### Back-end & Infraestrutura
 - **PHP 8.2+** / **Laravel 12.0**: Framework base, robusto para construção da API de ingestão e lógica de negócios.
 - **PostgreSQL + TimescaleDB**: Banco de dados relacional otimizado para *Time-Series Data*. Essencial para suportar a alta volumetria de coletas de sensores IoT simultâneos (Temperatura, Chuva, UV, Pressão, etc).
 - **Docker**: Containerização completa da aplicação e banco de dados para garantir consistência de ambiente.
 
-### 🖥️ Front-end & Painel Administrativo
+### Front-end & Painel Administrativo
 - **Filament V5**: Framework TALL (Tailwind, Alpine, Laravel, Livewire) utilizado para criar todo o painel de administração e gráficos (ChartWidgets).
 - **Livewire 3 & Alpine.js**: Reatividade full-stack sem a necessidade de APIs pesadas, gerenciando os estados do frontend.
 - **Tailwind CSS**: Estilização utilitária e design system da aplicação.
 
-### 🗺️ Inteligência Geoespacial
+### Inteligência Geoespacial
 - **Leaflet.js**: Motor principal de renderização de mapas, usando `Canvas` puro para altíssima performance visual.
 - **GeoJSON**: Padrão de dados para transporte e armazenamento estruturado de polígonos no banco.
 - **Turf.js (Voronoi)**: Algoritmo matemático avançado utilizado no frontend para *geração dinâmica de fronteiras*. Quando um distrito possui apenas coordenadas de centro (lat/lng), o Turf calcula as áreas adjacentes (Diagrama de Voronoi) e desenha "fronteiras inteligentes" que não se sobrepõem, parecendo um quebra-cabeça perfeito em tempo real.
 
 ---
 
-## 📊 Modelagem de Dados
+## Modelagem de Dados
 
 A arquitetura de banco de dados do CCDAE divide-se em metadados geográficos e tabelas de alta frequência (IoT):
 
 ### Entidades Espaciais (Arquitetura do Modelo)
 
-#### 📍 Distrito
+#### Distrito
 O modelo central da gestão territorial inteligente. Sua arquitetura atual é composta por:
 - **Atributos Principais**: `nome`, `cidade`, `latitude`, `longitude` (decimais com precisão 7) e `geojson` (armazenado e castado dinamicamente como `array` para fácil manipulação e serialização).
 - **Auditoria e Rastreabilidade**: Implementa o trait `LogsActivity` do pacote Spatie para registrar automaticamente um log imutável de todas as modificações no banco de dados, crucial para governança urbana.
@@ -84,7 +84,7 @@ O sistema capta "1 payload de coleta que salva em 7 tabelas simultaneamente". Ca
 
 ---
 
-## 🧠 Soluções Técnicas de Destaque
+## Soluções Técnicas de Destaque
 
 ### Renderização Avançada de Mapas e Tratamento de Z-Index
 Devido ao alto volume de distritos renderizados no mapa interativo (`mapa-distritos.blade.php`), a aplicação utiliza a API nativa de `L.canvas` em preferência ao SVG padrão, mitigando colisões de estilo e aumentando a performance no navegador.
@@ -95,7 +95,7 @@ Em distritos onde as fronteiras exatas (`geojson`) não foram cadastradas, o fro
 
 ---
 
-## 🛠️ Como Executar o Projeto Localmente
+## Como Executar o Projeto Localmente
 
 1. **Clone o repositório:**
    ```bash

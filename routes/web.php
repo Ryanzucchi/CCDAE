@@ -26,10 +26,12 @@ Route::middleware('auth')->group(function () {
 require __DIR__.'/auth.php';
 
 Route::get('/api/infraestrutura/geojson', \App\Http\Controllers\Api\InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
+Route::get('/api/transito/timeline', \App\Http\Controllers\Api\TrafficTimelineController::class)->name('api.transito.timeline');
 
-Route::get('/test-login', function() {
+Route::get('/test-login', function () {
     $u = \App\Models\User::where('email', 'ryan@admin.com')->first();
     $attempt = Auth::attempt(['email' => 'ryan@admin.com', 'password' => '12345678']);
+
     return response()->json([
         'user' => $u,
         'attempt' => $attempt,

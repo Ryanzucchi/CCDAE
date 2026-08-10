@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+listen_addresses: 0.0.0.0:3000
+base_path: /tiles
+preferred_encoding: gzip
+worker_processes: 4
+cache:
+  size_mb: 256
+  tile_size_mb: 192
+  # Trânsito é atualizado a cada poucos minutos; não manter tiles antigas por longos períodos.
+  tile_expiry: 1m
+on_invalid: abort
+postgres:
+  connection_string: ${MARTIN_DATABASE_URL}
+  default_srid: 4326
+  auto_bounds: quick
+  pool_size: 10
+  max_feature_count: 100000
+  auto_publish:
+    from_schemas:
+      - tiles
+    functions: false
+    tables:
+      from_schemas:
+        - tiles
+      id_columns:
+        - id
+      source_id_format: "{table}"

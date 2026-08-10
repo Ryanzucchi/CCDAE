@@ -188,6 +188,10 @@ class InfraestruturaCaceresSeeder extends Seeder
             if ($posteB->id === $posteA->id || abs($posteA->id - $posteB->id) <= 2) continue; 
             
             $d = $this->distance($posteA->latitude, $posteA->longitude, $posteB->latitude, $posteB->longitude);
+            // Postes distintos podem compartilhar a mesma coordenada. Não crie uma
+            // LineString de comprimento zero, pois ela não é uma geometria linear válida.
+            if ($d < 0.01) continue;
+
             if ($d < $minD) {
                 $minD = $d;
                 $closest = $posteB;
@@ -211,6 +215,9 @@ class InfraestruturaCaceresSeeder extends Seeder
         $lon2 = $destino->longitude;
         if (!$lat1 || !$lon1 || !$lat2 || !$lon2) return;
 
+        $distance = $this->distance($lat1, $lon1, $lat2, $lon2);
+        if ($distance < 0.01) return;
+
         $geojson = [
             'type' => 'LineString',
             'coordinates' => [
@@ -220,11 +227,12 @@ class InfraestruturaCaceresSeeder extends Seeder
         ];
 
         Cabeamento::create([
+            'distrito_id' => $origem->distrito_id ?? $destino->distrito_id,
             $origemCol => $origem->id,
             $destinoCol => $destino->id,
             'nome' => $nome,
             'tipo_cabo' => $tipoCabo,
-            'extensao_metros' => $this->distance($lat1, $lon1, $lat2, $lon2),
+            'extensao_metros' => $distance,
             'geojson' => $geojson,
             'estado_conservacao' => 'bom',
             'data_instalacao' => now(),

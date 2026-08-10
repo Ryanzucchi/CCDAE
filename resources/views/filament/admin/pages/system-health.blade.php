@@ -1,35 +1,29 @@
 <x-filament-panels::page>
     <style>
         .health-card {
-            background: linear-gradient(145deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 100%);
-            border: 1px solid rgba(229,231,235,0.5);
-            border-radius: 1.25rem;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03), 0 4px 6px -4px rgba(0,0,0,0.02);
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
             padding: 1.5rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
             position: relative;
             overflow: hidden;
         }
         .dark .health-card {
-            background: linear-gradient(145deg, rgba(24,24,27,1) 0%, rgba(9,9,11,1) 100%);
-            border: 1px solid rgba(63,63,70,0.5);
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2), 0 4px 6px -4px rgba(0,0,0,0.1);
+            background: #18181b;
+            border-color: #3f3f46;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.24);
         }
         .health-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01);
+            border-color: #d1d5db;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
         }
         .dark .health-card:hover {
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3), 0 8px 10px -6px rgba(0,0,0,0.2);
-            border-color: rgba(63,63,70,0.8);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.24);
+            border-color: #52525b;
         }
-        .health-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-        }
+        .health-card::before { display: none; }
         
         .progress-track {
             height: 0.6rem;
@@ -50,14 +44,7 @@
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 100%);
-            animation: shimmer 2s infinite linear;
-            background-size: 200% 100%;
-        }
+        .progress-fill::after { display: none; }
         @keyframes shimmer {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
@@ -69,31 +56,31 @@
             align-items: center;
             justify-content: center;
             padding: 1.25rem;
-            border-radius: 1rem;
-            background: rgba(249,250,251,0.5);
-            border: 1px solid rgba(229,231,235,0.3);
+            border-radius: 0.75rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
             text-align: center;
         }
         .dark .metric-box {
-            background: rgba(24,24,27,0.5);
-            border: 1px solid rgba(63,63,70,0.3);
+            background: #27272a;
+            border-color: #3f3f46;
         }
         
         .terminal-box {
             background-color: #09090b;
             border: 1px solid #27272a;
-            border-radius: 1rem;
+            border-radius: 0.75rem;
             padding: 1rem;
             font-family: 'Fira Code', 'Courier New', Courier, monospace;
             font-size: 0.75rem;
             color: #d4d4d8;
             overflow-x: auto;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            box-shadow: none;
         }
         .terminal-line { margin-bottom: 0.25rem; line-height: 1.4; }
-        .terminal-success { color: #10b981; text-shadow: 0 0 5px rgba(16,185,129,0.3); }
-        .terminal-error { color: #f43f5e; text-shadow: 0 0 5px rgba(244,63,94,0.3); }
-        .terminal-running { color: #3b82f6; text-shadow: 0 0 5px rgba(59,130,246,0.3); }
+        .terminal-success { color: #10b981; }
+        .terminal-error { color: #f43f5e; }
+        .terminal-running { color: #60a5fa; }
 
         .pulse-dot {
             height: 12px; width: 12px;
@@ -106,11 +93,11 @@
             position: absolute;
             top: -2px; left: -2px; right: -2px; bottom: -2px;
             border-radius: 50%;
-            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            display: none;
         }
-        .pulse-green { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .pulse-green { background-color: #10b981; }
         .pulse-green::before { border: 2px solid #10b981; }
-        .pulse-red { background-color: #f43f5e; box-shadow: 0 0 8px #f43f5e; }
+        .pulse-red { background-color: #f43f5e; }
         .pulse-red::before { border: 2px solid #f43f5e; animation: none; }
         
         @keyframes pulse-ring {
@@ -120,10 +107,9 @@
         
         .alert-card {
             display: flex; align-items: flex-start;
-            padding: 1.25rem; border-radius: 1rem; margin-bottom: 1rem;
-            border-left: 5px solid;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            animation: slideIn 0.3s ease-out forwards;
+            padding: 1rem; border-radius: 0.75rem; margin-bottom: 0.75rem;
+            border: 1px solid;
+            box-shadow: none;
         }
         .alert-danger { background-color: rgba(255,241,242,0.8); border-color: #f43f5e; }
         .dark .alert-danger { background-color: rgba(136,19,55,0.2); border-color: #f43f5e; }
@@ -142,10 +128,10 @@
             cursor: pointer; gap: 0.5rem;
             border: none; color: white;
         }
-        .btn-success { background: linear-gradient(to right, #10b981, #059669); box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39); }
-        .btn-success:hover { background: linear-gradient(to right, #059669, #047857); transform: translateY(-1px); }
-        .btn-danger { background: linear-gradient(to right, #f43f5e, #e11d48); box-shadow: 0 4px 14px 0 rgba(244, 63, 94, 0.39); }
-        .btn-danger:hover { background: linear-gradient(to right, #e11d48, #be123c); transform: translateY(-1px); }
+        .btn-success { background: #059669; box-shadow: none; }
+        .btn-success:hover { background: #047857; }
+        .btn-danger { background: #e11d48; box-shadow: none; }
+        .btn-danger:hover { background: #be123c; }
         .btn-outline { background: transparent; border: 1px solid #d1d5db; color: #374151; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
         .dark .btn-outline { border-color: #4b5563; color: #d1d5db; }
         .btn-outline:hover { background: rgba(243,244,246,0.5); }
@@ -248,6 +234,15 @@
                             <span style="font-size: 0.65rem; color: #9ca3af; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem;">Versão PostgreSQL</span>
                             <span style="font-size: 0.875rem; font-weight: 600; color: inherit; margin-top: 0.25rem;">{{ explode(' ', $stats['db_version'])[0] ?? 'N/A' }}</span>
                         </div>
+                        <div class="metric-box" style="border-color: {{ $stats['martin_online'] ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.5)' }};">
+                            <span style="font-size: 0.65rem; color: #9ca3af; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem;">Tiles Martin/MVT</span>
+                            <span style="font-size: 1rem; font-weight: 800; color: {{ $stats['martin_online'] ? '#10b981' : '#f43f5e' }};">
+                                {{ $stats['martin_online'] ? 'Online' : 'Indisponível' }}
+                            </span>
+                            <span style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">
+                                {{ $stats['martin_sources'] }} fontes · {{ $stats['martin_latency'] !== null ? $stats['martin_latency'].' ms' : 'sem resposta' }}
+                            </span>
+                        </div>
                     </div>
                 </x-filament::section>
             </div>
@@ -292,7 +287,7 @@
                         Clima: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_climate_record'] }}</strong><br>
                         Trânsito: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_traffic_record'] }}</strong>
                     </p>
-                    <button type="button" wire:click="runCollector" class="btn-custom" style="background: linear-gradient(to right, #3b82f6, #2563eb); box-shadow: 0 4px 14px 0 rgba(59,130,246,0.39);">
+                    <button type="button" wire:click="runCollector" class="btn-custom" style="background: #2563eb;">
                         <x-filament::icon icon="heroicon-o-arrow-path" style="width: 1.25rem; height: 1.25rem; color: white;" />
                         Sincronizar Dados Agora
                     </button>
@@ -308,7 +303,7 @@
                 <div class="terminal-box" style="margin-top: 1rem;">
                     @if (empty($stats['worker_logs']) || str_contains($stats['worker_logs'], 'Nenhum log'))
                         <div class="terminal-line" style="display:flex; gap:0.5rem;">
-                            <span style="color:#10b981;">➜</span>
+                            <span style="color:#10b981;">-&gt;</span>
                             <span>~/ccdae</span>
                             <span style="color:#60a5fa;">php artisan queue:work --verbose</span>
                         </div>

@@ -10,6 +10,7 @@ use App\Jobs\CollectTrafficData;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
@@ -172,6 +173,41 @@ class SystemHealth extends Page implements HasTable
             $bottlenecks[] = ['type' => 'warning', 'msg' => "Latência alta do Banco de Dados ({$dbLatency}ms)."];
         }
 
+        $martinOnline = false;
+        $martinLatency = null;
+        $martinSources = 0;
+        if (config('maps.martin.enabled')) {
+            $martinHealth = Cache::remember('maps.martin.health', 15, function (): array {
+                try {
+                    $startMartinPing = microtime(true);
+                    $response = Http::timeout(2)->acceptJson()->get(config('maps.martin.internal_catalog_url'));
+
+                    return [
+                        'online' => $response->successful(),
+                        'latency' => round((microtime(true) - $startMartinPing) * 1000, 2),
+                        'sources' => count($response->json('tiles', [])),
+                    ];
+                } catch (\Throwable) {
+                    return ['online' => false, 'latency' => null, 'sources' => 0];
+                }
+            });
+            $martinOnline = $martinHealth['online'];
+            $martinLatency = $martinHealth['latency'];
+            $martinSources = $martinHealth['sources'];
+
+            if (! $martinOnline) {
+                $bottlenecks[] = [
+                    'type' => 'danger',
+                    'msg' => 'Martin indisponível. As camadas vetoriais MVT dos mapas podem não aparecer.',
+                ];
+            } elseif ($martinLatency > 500) {
+                $bottlenecks[] = [
+                    'type' => 'warning',
+                    'msg' => "Latência alta no catálogo Martin ({$martinLatency}ms).",
+                ];
+            }
+        }
+
         $load = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
         $loadText = $load ? implode(', ', array_map(fn($n) => number_format($n, 2), $load)) : 'N/A';
         if ($load && $load[0] > 4.0) {
@@ -228,7 +264,10 @@ class SystemHealth extends Page implements HasTable
         }
 
         // Last Climate data record
-        $lastClimateRecord = DB::table('temperatura_registrada')->latest('timestamp')->value('timestamp');
+        $lastClimateRecord = DB::table('temperatura_registrada')
+            ->where('timestamp', '<=', now()->endOfMinute())
+            ->latest('timestamp')
+            ->value('timestamp');
         $lastClimateRecordText = $lastClimateRecord 
             ? \Carbon\Carbon::parse($lastClimateRecord)->format('d/m/Y H:i') . ' (' . \Carbon\Carbon::parse($lastClimateRecord)->diffForHumans() . ')'
             : 'Nenhum registro encontrado';
@@ -265,6 +304,9 @@ class SystemHealth extends Page implements HasTable
                 'db_version' => $dbVersion,
                 'db_size' => $dbSize,
                 'db_latency' => $dbLatency,
+                'martin_online' => $martinOnline,
+                'martin_latency' => $martinLatency,
+                'martin_sources' => $martinSources,
                 'system_load' => $loadText,
                 'php_memory' => $phpMemory,
                 'php_limit' => $phpLimit,

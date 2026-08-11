@@ -58,46 +58,30 @@
             outline-offset: 2px;
         }
 
-        .timeline-range {
-            appearance: none;
-            width: 100%;
-            height: 8px;
-            border-radius: 9999px;
-            outline: none;
-            cursor: pointer;
-        }
-        .timeline-range::-webkit-slider-thumb {
-            appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 9999px;
-            background: rgb(var(--primary-600));
-            border: 4px solid #fff;
-            box-shadow: 0 1px 7px rgba(0,0,0,.28);
-        }
-        .timeline-range::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 9999px;
-            background: rgb(var(--primary-600));
-            border: 4px solid #fff;
-            box-shadow: 0 1px 7px rgba(0,0,0,.28);
-        }
-        .timeline-tick { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 9999px; background: #d1d5db; transition: .2s; cursor: pointer; }
-        .timeline-tick.active { background: rgb(var(--primary-600)); transform: scale(1.35); }
-        .climate-timeline { overflow: hidden; margin-top: 16px; border-radius: 12px; background: #fff; border: 1px solid rgba(17,24,39,.1); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-        .timeline-layout { display: grid; grid-template-columns: auto minmax(150px, 220px) minmax(280px, 1fr) minmax(120px, auto); align-items: center; gap: 20px; padding: 18px 20px; }
-        .timeline-play { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 0; border-radius: 9999px; background: rgb(var(--primary-600)); color: #fff; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,.16); }
-        .timeline-play:hover { background: rgb(var(--primary-500)); }
-        .timeline-play svg { width: 18px !important; height: 18px !important; display: block; }
+        .climate-timeline { margin-top:16px; border:1px solid #dbe3ec; border-radius:14px; background:#fff; box-shadow:0 4px 16px rgba(15,23,42,.07); }
+        .timeline-layout { display:grid; grid-template-columns:auto minmax(145px,190px) minmax(300px,1fr) minmax(125px,auto); align-items:center; gap:22px; padding:20px 22px; }
+        .timeline-play { display:flex; align-items:center; justify-content:center; min-width:104px; height:42px; padding:0 18px; border:1px solid #0369a1; border-radius:10px; background:#0369a1; color:#fff; cursor:pointer; box-shadow:0 2px 5px rgba(15,23,42,.18); font-size:12px; font-weight:700; transition:background .15s,border-color .15s,transform .15s; }
+        .timeline-play:hover:not(:disabled) { background:#075985; border-color:#075985; transform:translateY(-1px); }
+        .timeline-play:disabled { cursor:not-allowed; opacity:.45; box-shadow:none; }
         .timeline-heading { min-width: 0; }
         .timeline-title-row { display: flex; align-items: center; gap: 8px; color: #111827; }
         .timeline-title-row svg { width: 18px !important; height: 18px !important; flex: 0 0 18px; color: rgb(var(--primary-600)); }
         .timeline-title { font-size: 14px; font-weight: 700; line-height: 1.25; }
         .timeline-subtitle { margin-top: 3px; font-size: 12px; line-height: 1.35; color: #6b7280; }
         .timeline-control { min-width: 0; }
-        .timeline-labels { display: flex; justify-content: space-between; margin-bottom: 9px; font-size: 11px; font-weight: 600; color: #6b7280; }
-        .timeline-ticks { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; margin-top: 10px; }
+        .timeline-labels { display:flex; justify-content:space-between; margin-bottom:18px; font-size:11px; font-weight:650; color:#6b7280; }
+        .timeline-range-shell { position:relative; padding-top:10px; }
+        .timeline-bubble { position:absolute; top:-16px; left:calc(100% - 11px); z-index:2; min-width:58px; padding:4px 7px; border-radius:6px; background:#0f172a; color:#fff; font-size:10px; font-weight:700; line-height:1; text-align:center; white-space:nowrap; transform:translateX(-50%); pointer-events:none; }
+        .timeline-bubble::after { content:''; position:absolute; top:100%; left:50%; border:4px solid transparent; border-top-color:#0f172a; transform:translateX(-50%); }
+        .timeline-range { display:block; appearance:none; width:100%; height:8px; margin:0; border:1px solid rgba(3,105,161,.16); border-radius:9999px; outline:none; cursor:pointer; background:linear-gradient(to right,#0284c7 0%,#0284c7 var(--timeline-progress,100%),#dbe3ec var(--timeline-progress,100%),#dbe3ec 100%); }
+        .timeline-range:focus-visible { outline:3px solid rgba(56,189,248,.35); outline-offset:4px; }
+        .timeline-range:disabled { cursor:not-allowed; opacity:.5; }
+        .timeline-range::-webkit-slider-thumb { width:22px; height:22px; appearance:none; border:4px solid #fff; border-radius:50%; background:#0284c7; box-shadow:0 0 0 1px #0369a1,0 3px 9px rgba(2,132,199,.38); }
+        .timeline-range::-moz-range-thumb { width:14px; height:14px; border:4px solid #fff; border-radius:50%; background:#0284c7; box-shadow:0 0 0 1px #0369a1,0 3px 9px rgba(2,132,199,.38); }
+        .timeline-ticks { display:flex; justify-content:space-between; align-items:center; margin-top:13px; padding:0 11px; }
+        .timeline-tick { width:5px; height:5px; padding:0; border:0; border-radius:50%; background:#cbd5e1; cursor:pointer; transition:transform .15s,background .15s; }
+        .timeline-tick:hover { background:#38bdf8; transform:scale(1.7); }
+        .timeline-tick.active { background:#0369a1; transform:scale(1.8); }
         .timeline-selected { padding-left: 18px; border-left: 1px solid #e5e7eb; text-align: right; }
         .timeline-selected-label { display: block; font-size: 10px; font-weight: 600; line-height: 1.2; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; }
         .timeline-selected-value { display: block; margin-top: 4px; font-size: 15px; font-weight: 700; line-height: 1.2; color: #111827; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -105,12 +89,15 @@
         .dark .timeline-title, .dark .timeline-selected-value { color: #fff; }
         .dark .timeline-subtitle, .dark .timeline-labels, .dark .timeline-selected-label { color: #9ca3af; }
         .dark .timeline-selected { border-color: rgba(255,255,255,.1); }
+        .dark .timeline-range { border-color:rgba(56,189,248,.25); background:linear-gradient(to right,#38bdf8 0%,#38bdf8 var(--timeline-progress,100%),#334155 var(--timeline-progress,100%),#334155 100%); }
+        .dark .timeline-range::-webkit-slider-thumb { border-color:#0f172a; background:#38bdf8; box-shadow:0 0 0 1px #7dd3fc,0 3px 10px rgba(56,189,248,.35); }
+        .dark .timeline-range::-moz-range-thumb { border-color:#0f172a; background:#38bdf8; }
         @media (max-width: 900px) {
             .timeline-layout { grid-template-columns: auto 1fr auto; gap: 14px; }
             .timeline-control { grid-column: 1 / -1; grid-row: 2; }
         }
         .dark .timeline-tick { background: #4b5563; }
-        .dark .timeline-tick.active { background: rgb(var(--primary-400)); }
+        .dark .timeline-tick.active { background:#38bdf8; }
         .climate-controls {
             background: rgba(255, 255, 255, .96);
             border: 1px solid rgba(17, 24, 39, .12);
@@ -210,9 +197,7 @@
 
             <div class="climate-timeline">
                 <div class="timeline-layout">
-                    <button type="button" @click="togglePlay()" class="timeline-play" :title="isPlaying ? 'Pausar' : 'Reproduzir histórico'">
-                        <x-heroicon-s-pause x-show="isPlaying" class="h-5 w-5" />
-                        <x-heroicon-s-play x-show="!isPlaying" class="h-5 w-5 translate-x-px" />
+                    <button type="button" @click="togglePlay()" class="timeline-play" :title="isPlaying ? 'Pausar' : 'Reproduzir histórico'" :disabled="climaTimeline.length < 2" x-text="isPlaying ? 'Pausar' : 'Reproduzir'">
                     </button>
                     <div class="timeline-heading">
                         <div class="timeline-title-row">
@@ -226,23 +211,27 @@
                             <span>24 horas atrás</span>
                             <span>Agora</span>
                         </div>
-                        <input
-                            class="timeline-range"
-                            type="range"
-                            min="0"
-                            :max="Math.max(climaTimeline.length - 1, 0)"
-                            step="1"
-                            x-model.number="frameIndex"
-                            @input="frameChanged()"
-                            :style="timelineTrackStyle"
-                            :aria-valuetext="currentFrame ? currentFrame.label : 'Sem histórico'"
-                            aria-label="Horário da leitura climática"
-                            :disabled="climaTimeline.length < 2"
-                        >
-                        <div class="timeline-ticks" aria-hidden="true">
-                            <template x-for="(frame, index) in climaTimeline" :key="frame.timestamp">
-                                <button type="button" tabindex="-1" class="timeline-tick" :class="index <= frameIndex ? 'active' : ''" @click="frameIndex = index; frameChanged()"></button>
-                            </template>
+                        <div class="timeline-range-shell">
+                            <output x-ref="timelineBubble" class="timeline-bubble" x-text="currentFrame ? currentFrame.label.split(' ').at(-1) : '--:--'"></output>
+                            <input
+                                x-ref="timelineRange"
+                                class="timeline-range"
+                                type="range"
+                                min="0"
+                                :max="Math.max(climaTimeline.length - 1, 0)"
+                                step="1"
+                                x-model.number="frameIndex"
+                                @input="frameChanged()"
+                                :style="timelineTrackStyle"
+                                :aria-valuetext="currentFrame ? currentFrame.label : 'Sem histórico'"
+                                aria-label="Horário da leitura climática"
+                                :disabled="climaTimeline.length < 2"
+                            >
+                            <div class="timeline-ticks" aria-hidden="true">
+                                <template x-for="(frame, index) in climaTimeline" :key="frame.timestamp">
+                                    <button type="button" tabindex="-1" class="timeline-tick" :class="index === frameIndex ? 'active' : ''" :title="frame.label" @click="frameIndex = index; frameChanged()"></button>
+                                </template>
+                            </div>
                         </div>
                     </div>
                     <div class="timeline-selected">
@@ -261,6 +250,7 @@
                         frameIndex: Math.max(@json(count($this->climaTimeline)) - 1, 0),
                         isPlaying: false,
                         playTimer: null,
+                        resizeHandler: null,
 
                         get currentFrame() {
                             return this.climaTimeline[this.frameIndex] || null;
@@ -277,8 +267,7 @@
                         get timelineTrackStyle() {
                             const max = Math.max(this.climaTimeline.length - 1, 1);
                             const progress = (this.frameIndex / max) * 100;
-                            const inactive = document.documentElement.classList.contains('dark') ? 'rgb(75 85 99)' : 'rgb(229 231 235)';
-                            return `background:linear-gradient(to right, rgb(var(--primary-600)) 0%, rgb(var(--primary-600)) ${progress}%, ${inactive} ${progress}%, ${inactive} 100%)`;
+                            return `--timeline-progress:${progress}%`;
                         },
 
                         get windSummary() {
@@ -294,9 +283,25 @@
                         },
 
                         init() {
+                            this.resizeHandler = () => this.syncTimelineBubble();
+                            window.addEventListener('resize', this.resizeHandler);
                             setTimeout(() => {
                                 this.publishMapState(true);
+                                this.syncTimelineBubble();
                             }, 300);
+                        },
+
+                        syncTimelineBubble() {
+                            const range = this.$refs.timelineRange;
+                            const bubble = this.$refs.timelineBubble;
+                            if (!range || !bubble) return;
+                            const maximum = Math.max(this.climaTimeline.length - 1, 0);
+                            const progress = maximum ? this.frameIndex / maximum : 0;
+                            const thumbDiameter = 22;
+                            const thumbRadius = thumbDiameter / 2;
+                            const usableWidth = Math.max(0, range.clientWidth - thumbDiameter);
+                            bubble.style.left = `${thumbRadius + usableWidth * progress}px`;
+                            bubble.style.transform = 'translateX(-50%)';
                         },
 
                         setMetric(m) {
@@ -307,6 +312,7 @@
                         frameChanged() {
                             this.stopPlayback();
                             this.publishMapState(false);
+                            requestAnimationFrame(() => this.syncTimelineBubble());
                         },
 
                         togglePlay() {
@@ -324,6 +330,7 @@
                                 }
                                 this.frameIndex++;
                                 this.publishMapState(false);
+                                requestAnimationFrame(() => this.syncTimelineBubble());
                             }, 1200);
                         },
 
@@ -341,6 +348,11 @@
                                     fit,
                                 },
                             }));
+                        },
+
+                        destroy() {
+                            this.stopPlayback();
+                            if (this.resizeHandler) window.removeEventListener('resize', this.resizeHandler);
                         },
 
                     }))

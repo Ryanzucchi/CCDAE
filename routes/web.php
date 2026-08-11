@@ -18,6 +18,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/api/transito/intensidade', [\App\Http\Controllers\TransitoController::class, 'intensity'])->name('api.transito.intensidade');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -26,6 +27,7 @@ Route::middleware('auth')->group(function () {
 require __DIR__.'/auth.php';
 
 Route::get('/api/infraestrutura/geojson', \App\Http\Controllers\Api\InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
+Route::get('/api/infrastructure-map/buildings', \App\Http\Controllers\Api\InfrastructureBuildingsController::class)->name('api.infrastructure-map.buildings');
 Route::get('/api/transito/timeline', \App\Http\Controllers\Api\TrafficTimelineController::class)->name('api.transito.timeline');
 
 Route::get('/test-login', function () {

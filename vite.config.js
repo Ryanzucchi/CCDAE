@@ -25,6 +25,7 @@ export default defineConfig({
                 'resources/js/maps/districts-map.js',
                 'resources/js/maps/districts-widget-map.js',
                 'resources/js/maps/traffic-map.js',
+                'resources/js/maps/traffic-portal.js',
                 'resources/js/maps/infrastructure-map.js',
                 'resources/js/maps/climate-map.js',
             ],

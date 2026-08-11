@@ -9,6 +9,9 @@ import {
 } from './maplibre/base-map';
 
 const SOURCE_ID = 'ccdae-infrastructure';
+const BUILDINGS_SOURCE_ID = 'buildings';
+const BUILDINGS_LAYER_ID = '3d-buildings';
+const BUILDINGS_MIN_ZOOM = 14;
 const DETAIL_MIN_ZOOM = 15;
 const DEFAULT_CENTER = [-57.6875, -16.07083];
 let activeController = null;
@@ -162,7 +165,7 @@ function editUrl(kind, id) {
 
 function popupContent(properties) {
     const titles = {
-        road: 'Via', central: 'Central', cable: 'Cabo', equipment: 'Equipamento', pole: 'Poste', antenna: 'Antena',
+        road: 'Via', central: 'Central', cable: 'Cabo', equipment: 'Equipamento', pole: 'Poste', antenna: 'Antena', building: 'Construção',
     };
     const container = document.createElement('div');
     container.className = 'ccdae-infrastructure-popup';
@@ -173,7 +176,15 @@ function popupContent(properties) {
     container.appendChild(title);
 
     const rows = [];
-    if (properties.kind === 'road') {
+    if (properties.kind === 'building') {
+        const sourceLabels = { osm_height: 'altura real informada no OSM', levels: 'calculada pela quantidade de níveis', default: 'altura visual padrão' };
+        rows.push(['Tipo', properties.building || 'Não informado']);
+        rows.push(['OSM', `${properties.osm_type || 'objeto'} ${properties.osm_id || ''}`.trim()]);
+        rows.push(['Altura cadastrada', properties.height ? `${properties.height} m` : 'Não informada']);
+        rows.push(['Altura de renderização', `${properties.render_height ?? 0} m`]);
+        rows.push(['Níveis', properties.building_levels ?? 'Não informado']);
+        rows.push(['Origem da altura', sourceLabels[properties.height_source] ?? properties.height_source ?? 'Não informada']);
+    } else if (properties.kind === 'road') {
         rows.push(['Congestionamento', String(properties.congestion ?? 'livre').toUpperCase()]);
         rows.push(['Velocidade média', properties.speed ? `${properties.speed} km/h` : 'Não informada']);
     } else {
@@ -210,18 +221,45 @@ class InfrastructureMapController {
         this.martinEnabled = container.dataset.martinEnabled === 'true';
         this.martinBaseUrl = (container.dataset.martinTilejsonUrl || '/tiles').replace(/\/$/, '');
         this.districtId = null;
+        this.buildingsEnabled = true;
+        this.buildingsCacheBounds = null;
+        this.buildingsAbortController = null;
+        this.buildingsRequestTimer = null;
         this.onData = this.onData.bind(this);
         this.onResize = this.onResize.bind(this);
         this.map = createMap(container, { center: DEFAULT_CENTER, zoom: 12 });
         this.map.setMaxZoom(22);
         this.map.on('load', () => this.onLoad());
         this.map.on('zoom', () => this.updateZoomHint());
+        this.onBuildingsViewportChanged = this.onBuildingsViewportChanged.bind(this);
+        this.onBuildingsToggle = this.onBuildingsToggle.bind(this);
+        this.map.on('moveend', this.onBuildingsViewportChanged);
+        this.map.on('zoomend', this.onBuildingsViewportChanged);
+        document.addEventListener('change', this.onBuildingsToggle);
         window.addEventListener('infra-map-data', this.onData);
         window.addEventListener('infra-map-resize', this.onResize);
     }
 
     onLoad() {
         this.map.addSource(SOURCE_ID, { type: 'geojson', data: featureCollection([]) });
+        this.map.addSource(BUILDINGS_SOURCE_ID, { type: 'geojson', data: featureCollection([]) });
+        const firstSymbolLayer = this.map.getStyle().layers?.find((layer) => layer.type === 'symbol')?.id;
+        this.map.addLayer({
+            id: BUILDINGS_LAYER_ID,
+            type: 'fill-extrusion',
+            source: BUILDINGS_SOURCE_ID,
+            minzoom: BUILDINGS_MIN_ZOOM,
+            paint: {
+                'fill-extrusion-color': [
+                    'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 6],
+                    0, '#d6d3d1', 12, '#a8a29e', 30, '#78716c', 80, '#57534e',
+                ],
+                'fill-extrusion-height': ['coalesce', ['to-number', ['get', 'render_height']], 6],
+                'fill-extrusion-base': ['coalesce', ['to-number', ['get', 'render_min_height']], 0],
+                'fill-extrusion-opacity': 0.78,
+                'fill-extrusion-vertical-gradient': true,
+            },
+        }, firstSymbolLayer);
 
         this.addLineLayer('infrastructure-roads', 'road', 6);
         this.addFillLayer('infrastructure-central-fill', 'central', '#f59e0b', 0.4);
@@ -242,11 +280,13 @@ class InfrastructureMapController {
             'infrastructure-equipment': null,
             'infrastructure-poles': null,
             'infrastructure-antennas': null,
+            [BUILDINGS_LAYER_ID]: 'building',
             ...martinInteractions,
         });
 
         this.loaded = true;
         this.updateZoomHint();
+        this.loadBuildingsForViewport();
         if (this.pendingPayload) {
             this.render(this.pendingPayload.data, this.pendingPayload.fit, this.pendingPayload.bounds);
         }
@@ -466,6 +506,49 @@ class InfrastructureMapController {
         setTimeout(() => this.map.resize(), 50);
     }
 
+    onBuildingsToggle(event) {
+        if (event.target?.id !== 'infra-buildings-toggle') return;
+        this.buildingsEnabled = Boolean(event.target.checked);
+        if (this.map.getLayer(BUILDINGS_LAYER_ID)) {
+            this.map.setLayoutProperty(BUILDINGS_LAYER_ID, 'visibility', this.buildingsEnabled ? 'visible' : 'none');
+        }
+        if (this.buildingsEnabled) this.loadBuildingsForViewport(true);
+    }
+
+    onBuildingsViewportChanged() {
+        clearTimeout(this.buildingsRequestTimer);
+        this.buildingsRequestTimer = setTimeout(() => this.loadBuildingsForViewport(), 250);
+    }
+
+    async loadBuildingsForViewport(force = false) {
+        if (!this.loaded || !this.buildingsEnabled || this.map.getZoom() < BUILDINGS_MIN_ZOOM) {
+            if (this.loaded && this.map.getSource(BUILDINGS_SOURCE_ID)) this.map.getSource(BUILDINGS_SOURCE_ID).setData(featureCollection([]));
+            return;
+        }
+        const bounds = this.map.getBounds();
+        const requested = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+        if (!force && this.buildingsCacheBounds
+            && requested[0] >= this.buildingsCacheBounds[0] && requested[1] >= this.buildingsCacheBounds[1]
+            && requested[2] <= this.buildingsCacheBounds[2] && requested[3] <= this.buildingsCacheBounds[3]) return;
+
+        const lngPadding = (requested[2] - requested[0]) * 0.2;
+        const latPadding = (requested[3] - requested[1]) * 0.2;
+        const queryBounds = [requested[0] - lngPadding, requested[1] - latPadding, requested[2] + lngPadding, requested[3] + latPadding];
+        this.buildingsAbortController?.abort();
+        this.buildingsAbortController = new AbortController();
+        try {
+            const response = await fetch(`/api/infrastructure-map/buildings?bbox=${queryBounds.join(',')}`, {
+                headers: { Accept: 'application/json' }, signal: this.buildingsAbortController.signal,
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            this.map.getSource(BUILDINGS_SOURCE_ID)?.setData(data);
+            this.buildingsCacheBounds = queryBounds;
+        } catch (error) {
+            if (error.name !== 'AbortError') console.error('Erro ao carregar construções locais.', error);
+        }
+    }
+
     render(payload, fit = true, bounds = null) {
         this.pendingPayload = { data: payload, fit, bounds };
         if (!this.loaded) return;
@@ -487,6 +570,9 @@ class InfrastructureMapController {
     destroy() {
         window.removeEventListener('infra-map-data', this.onData);
         window.removeEventListener('infra-map-resize', this.onResize);
+        document.removeEventListener('change', this.onBuildingsToggle);
+        clearTimeout(this.buildingsRequestTimer);
+        this.buildingsAbortController?.abort();
         this.map.remove();
     }
 }

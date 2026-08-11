@@ -47,6 +47,10 @@
                     </x-filament::input.select>
                 </x-filament::input.wrapper>
             </div>
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                <x-filament::input.checkbox id="infra-buildings-toggle" checked />
+                Construções 3D
+            </label>
         </div>
 
         <div wire:ignore x-data="infraMapPage" x-init="init()" class="ccdae-map-surface" style="height: 750px;">
@@ -135,6 +139,7 @@
                 <div class="legend-item"><span class="legend-color border border-black" style="background:#9ca3af"></span>Postes</div>
                 <div class="legend-item"><span class="legend-color" style="background:#ec4899"></span>Antenas Telecom</div>
                 <div class="legend-item"><span class="legend-color" style="background:#10b981"></span>Equipamentos</div>
+                <div class="legend-item"><span class="legend-color" style="background:#78716c"></span>Construções 3D locais</div>
                 <div class="legend-item mt-2"><strong>Fluxo de Trânsito</strong></div>
                 <div class="legend-item"><span class="legend-line" style="background:#22c55e"></span>Via Livre</div>
                 <div class="legend-item"><span class="legend-line" style="background:#eab308"></span>Moderado</div>
@@ -165,6 +170,19 @@
                         terrainSampler: null,
                         terrainRequestKey: null,
 
+                        async fetchBuildings(bounds) {
+                            if (!bounds) return [];
+                            const bbox = [bounds.minLon, bounds.minLat, bounds.maxLon, bounds.maxLat]
+                                .map(value => Number(value).toFixed(7))
+                                .join(',');
+                            const response = await fetch(`/api/infrastructure-map/buildings?bbox=${bbox}`, {
+                                headers: { Accept: 'application/json' },
+                            });
+                            if (!response.ok) throw new Error(`Falha ao carregar construções: HTTP ${response.status}`);
+                            const collection = await response.json();
+                            return Array.isArray(collection.features) ? collection.features : [];
+                        },
+
                         init() {
                             setTimeout(() => {
                                 this.fetchData(this.distritoId, false);
@@ -175,6 +193,12 @@
                                 this.distritoId = distrito_id;
                                 this.detailsDistrictId = null;
                                 this.fetchData(distrito_id, false);
+                            });
+
+                            document.addEventListener('change', (event) => {
+                                if (event.target?.id === 'infra-buildings-toggle' && this.mode === '3d' && this.cachedData) {
+                                    this.renderThree(this.cachedData);
+                                }
                             });
                         },
 
@@ -461,6 +485,18 @@
                                                 <b>Fluxo:</b> ${d.nivel_congestionamento || 'não informado'}<br>
                                                 <b>Velocidade média:</b> ${d.velocidade_media ? `${d.velocidade_media} km/h` : 'não informada'}`;
                                         editUrl = `/admin/via-transitos/${d.id}/edit`;
+                                    } else if (item.type === 'building') {
+                                        title = 'Construção OpenStreetMap';
+                                        const d = item.data;
+                                        const sourceLabel = d.height_source === 'osm'
+                                            ? 'informada no OSM'
+                                            : (d.height_source === 'levels' ? 'calculada pelos níveis' : 'altura visual padrão');
+                                        html = `<b>Tipo:</b> ${d.building || 'construção'}<br>
+                                                <b>OSM ID:</b> ${d.osm_type || 'objeto'} ${d.osm_id || ''}<br>
+                                                <b>Altura cadastrada:</b> ${d.height ? `${Number(d.height).toFixed(2)} m` : 'não informada'}<br>
+                                                <b>Altura renderizada:</b> ${Number(d.render_height || 0).toFixed(2)} m<br>
+                                                <b>Níveis:</b> ${d.building_levels ?? 'não informado'}<br>
+                                                <b>Origem da altura:</b> ${sourceLabel}`;
                                     }
 
                                     if (html) {
@@ -600,6 +636,15 @@
                                 const z = -(parseFloat(lat) - centerLat) * metersPerDegreeLat;
                                 return { x, z };
                             };
+                            const getGeoCoords = (x, z) => {
+                                const latRad = centerLat * Math.PI / 180;
+                                const metersPerDegreeLon = 111320 * Math.cos(latRad);
+                                const metersPerDegreeLat = 110540;
+                                return {
+                                    lon: centerLon + Number(x) / metersPerDegreeLon,
+                                    lat: centerLat - Number(z) / metersPerDegreeLat,
+                                };
+                            };
 
                             const validPoles = (data.postes || []).filter(p => p.latitude && p.longitude);
                             const latitudes = validPoles.map(p => Number(p.latitude));
@@ -613,6 +658,7 @@
                             const terrainSampler = terrainBounds ? await this.loadTerrain(terrainBounds) : null;
                             const terrainExaggeration = Number(document.getElementById('infra-3d-container')?.dataset.terrainExaggeration || 1.35);
                             let terrainReference = 0;
+                            let groundHeightResolver = () => 0;
                             const roadSegments = [];
                             (data.vias || []).forEach(via => {
                                 try {
@@ -649,6 +695,27 @@
                                         vertices.push(local.x, elevation, local.z);
                                     }
                                 }
+
+                                // Usa a mesma superfície triangulada para apoiar todos os objetos.
+                                // Amostrar diretamente o tile faz postes e vias divergirem da grade visual.
+                                groundHeightResolver = (lat, lon) => {
+                                    const columnPosition = ((Number(lon) - terrainBounds.minLon) / (terrainBounds.maxLon - terrainBounds.minLon)) * (columns - 1);
+                                    const rowPosition = ((terrainBounds.maxLat - Number(lat)) / (terrainBounds.maxLat - terrainBounds.minLat)) * (rows - 1);
+                                    const column0 = Math.max(0, Math.min(columns - 1, Math.floor(columnPosition)));
+                                    const row0 = Math.max(0, Math.min(rows - 1, Math.floor(rowPosition)));
+                                    const column1 = Math.min(columns - 1, column0 + 1);
+                                    const row1 = Math.min(rows - 1, row0 + 1);
+                                    const tx = Math.max(0, Math.min(1, columnPosition - column0));
+                                    const ty = Math.max(0, Math.min(1, rowPosition - row0));
+                                    const a = elevationGrid[row0 * columns + column0];
+                                    const b = elevationGrid[row0 * columns + column1];
+                                    const c = elevationGrid[row1 * columns + column0];
+                                    const d = elevationGrid[row1 * columns + column1];
+                                    // Mesma diagonal dos índices a,c,b / b,c,d usados pela BufferGeometry.
+                                    return tx + ty <= 1
+                                        ? a + (b - a) * tx + (c - a) * ty
+                                        : d + (c - d) * (1 - tx) + (b - d) * (1 - ty);
+                                };
                                 const minElevation = Math.min(...elevationGrid);
                                 const maxElevation = Math.max(...elevationGrid);
                                 const elevationRange = Math.max(1, maxElevation - minElevation);
@@ -739,7 +806,7 @@
                                     });
                                     if (tooClose || onRoad) continue;
 
-                                    const groundY = Math.max(0, (terrainSampler(lat, lon) - terrainReference) * terrainExaggeration);
+                                    const groundY = groundHeightResolver(lat, lon);
                                     const treeHeight = 3.2 + ((attempt * 37) % 28) / 10;
                                     matrix.compose(
                                         new THREE.Vector3(local.x, groundY + treeHeight * 0.22, local.z),
@@ -766,9 +833,7 @@
                                 scene3D.add(trunk, canopy);
                             }
 
-                            const getGroundHeight = (lat, lon) => terrainSampler
-                                ? Math.max(0, (terrainSampler(Number(lat), Number(lon)) - terrainReference) * terrainExaggeration)
-                                : 0;
+                            const getGroundHeight = (lat, lon) => groundHeightResolver(Number(lat), Number(lon));
 
                             // OTIMIZAÇÃO EXTREMA: Reutilização de Materiais e Geometrias no WebGL
                             const cylinderGeo = new THREE.CylinderGeometry(0.12, 0.18, 1, 8); // Altura base 1 (vamos escalar)
@@ -835,6 +900,64 @@
                                 }),
                             };
 
+                            // Construções OSM armazenadas localmente, limitadas à área desta cena.
+                            const buildingsToggle = document.getElementById('infra-buildings-toggle');
+                            if (terrainBounds && (!buildingsToggle || buildingsToggle.checked)) {
+                                try {
+                                    const buildings = await this.fetchBuildings(terrainBounds);
+                                    const buildingMaterial = new THREE.MeshStandardMaterial({
+                                        color: document.documentElement.classList.contains('dark') ? 0x64748b : 0xa8a29e,
+                                        roughness: 0.88,
+                                        metalness: 0.02,
+                                    });
+
+                                    buildings.forEach(feature => {
+                                        const polygons = feature.geometry?.type === 'MultiPolygon'
+                                            ? feature.geometry.coordinates
+                                            : (feature.geometry?.type === 'Polygon' ? [feature.geometry.coordinates] : []);
+                                        polygons.forEach(rings => {
+                                            const outer = rings?.[0];
+                                            if (!outer || outer.length < 4) return;
+                                            const shape = new THREE.Shape();
+                                            outer.forEach((coordinate, index) => {
+                                                const local = getLocalCoords(coordinate[1], coordinate[0]);
+                                                if (index === 0) shape.moveTo(local.x, -local.z);
+                                                else shape.lineTo(local.x, -local.z);
+                                            });
+                                            (rings.slice(1) || []).forEach(inner => {
+                                                if (!inner || inner.length < 4) return;
+                                                const hole = new THREE.Path();
+                                                inner.forEach((coordinate, index) => {
+                                                    const local = getLocalCoords(coordinate[1], coordinate[0]);
+                                                    if (index === 0) hole.moveTo(local.x, -local.z);
+                                                    else hole.lineTo(local.x, -local.z);
+                                                });
+                                                shape.holes.push(hole);
+                                            });
+
+                                            const height = Math.max(1, Number(feature.properties?.render_height) || 6);
+                                            const geometry = new THREE.ExtrudeGeometry(shape, {
+                                                depth: height,
+                                                bevelEnabled: false,
+                                                curveSegments: 1,
+                                            });
+                                            geometry.rotateX(-Math.PI / 2);
+                                            const sampledGround = outer
+                                                .filter((_, index) => index % Math.max(1, Math.floor(outer.length / 12)) === 0)
+                                                .map(coordinate => getGroundHeight(coordinate[1], coordinate[0]));
+                                            const building = new THREE.Mesh(geometry, buildingMaterial);
+                                            building.position.y = sampledGround.length ? Math.max(...sampledGround) + 0.04 : 0.04;
+                                            building.castShadow = true;
+                                            building.receiveShadow = true;
+                                            building.userData = { type: 'building', data: feature.properties || {} };
+                                            scene3D.add(building);
+                                        });
+                                    });
+                                } catch (error) {
+                                    console.error('Erro ao adicionar construções à cena 3D.', error);
+                                }
+                            }
+
                             // 1. Renderizar Vias (Ruas)
                             if (data.vias) {
                                 data.vias.forEach(v => {
@@ -851,29 +974,60 @@
                                         lineSets.forEach(coords => {
                                             if (!coords || coords.length < 2) return;
                                             const roadWidth = 6;
+                                            const denseCoords = [coords[0]];
+                                            const roadSampleSpacing = 6;
+                                            for (let segmentIndex = 1; segmentIndex < coords.length; segmentIndex++) {
+                                                const startCoordinate = coords[segmentIndex - 1];
+                                                const endCoordinate = coords[segmentIndex];
+                                                const startLocal = getLocalCoords(startCoordinate[1], startCoordinate[0]);
+                                                const endLocal = getLocalCoords(endCoordinate[1], endCoordinate[0]);
+                                                const segmentLength = Math.hypot(endLocal.x - startLocal.x, endLocal.z - startLocal.z);
+                                                const divisions = Math.max(1, Math.ceil(segmentLength / roadSampleSpacing));
+                                                for (let division = 1; division <= divisions; division++) {
+                                                    const ratio = division / divisions;
+                                                    denseCoords.push([
+                                                        startCoordinate[0] + (endCoordinate[0] - startCoordinate[0]) * ratio,
+                                                        startCoordinate[1] + (endCoordinate[1] - startCoordinate[1]) * ratio,
+                                                    ]);
+                                                }
+                                            }
                                             const ribbonVertices = [];
                                             const ribbonIndices = [];
                                             const centerPoints = [];
                                             const leftEdge = [];
                                             const rightEdge = [];
 
-                                            coords.forEach((coordinate, index) => {
-                                                const previous = coords[Math.max(0, index - 1)];
-                                                const next = coords[Math.min(coords.length - 1, index + 1)];
+                                            denseCoords.forEach((coordinate, index) => {
+                                                const previous = denseCoords[Math.max(0, index - 1)];
+                                                const next = denseCoords[Math.min(denseCoords.length - 1, index + 1)];
                                                 const before = getLocalCoords(previous[1], previous[0]);
                                                 const after = getLocalCoords(next[1], next[0]);
                                                 const length = Math.hypot(after.x - before.x, after.z - before.z) || 1;
                                                 const normalX = -(after.z - before.z) / length;
                                                 const normalZ = (after.x - before.x) / length;
                                                 const local = getLocalCoords(coordinate[1], coordinate[0]);
-                                                const y = getGroundHeight(coordinate[1], coordinate[0]) + 0.1;
-                                                const left = new THREE.Vector3(local.x + normalX * roadWidth / 2, y, local.z + normalZ * roadWidth / 2);
-                                                const right = new THREE.Vector3(local.x - normalX * roadWidth / 2, y, local.z - normalZ * roadWidth / 2);
+                                                const leftX = local.x + normalX * roadWidth / 2;
+                                                const leftZ = local.z + normalZ * roadWidth / 2;
+                                                const rightX = local.x - normalX * roadWidth / 2;
+                                                const rightZ = local.z - normalZ * roadWidth / 2;
+                                                const leftGeo = getGeoCoords(leftX, leftZ);
+                                                const rightGeo = getGeoCoords(rightX, rightZ);
+                                                // Cada borda acompanha sua própria altitude; usar a altura
+                                                // do eixo central fazia metade da pista atravessar encostas.
+                                                const roadClearance = 0.22;
+                                                const leftY = getGroundHeight(leftGeo.lat, leftGeo.lon) + roadClearance;
+                                                const rightY = getGroundHeight(rightGeo.lat, rightGeo.lon) + roadClearance;
+                                                const left = new THREE.Vector3(leftX, leftY, leftZ);
+                                                const right = new THREE.Vector3(rightX, rightY, rightZ);
                                                 ribbonVertices.push(left.x, left.y, left.z, right.x, right.y, right.z);
                                                 leftEdge.push(left);
                                                 rightEdge.push(right);
-                                                centerPoints.push(new THREE.Vector3(local.x, y + 0.045, local.z));
-                                                if (index < coords.length - 1) {
+                                                centerPoints.push(new THREE.Vector3(
+                                                    local.x,
+                                                    getGroundHeight(coordinate[1], coordinate[0]) + roadClearance + 0.045,
+                                                    local.z
+                                                ));
+                                                if (index < denseCoords.length - 1) {
                                                     const base = index * 2;
                                                     ribbonIndices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
                                                 }

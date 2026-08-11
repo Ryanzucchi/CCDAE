@@ -8,6 +8,7 @@ import {
     parseJson,
     registerLivewireMap,
 } from './maplibre/base-map';
+import { MapLegendControl } from './maplibre/legend-control';
 
 const SOURCE_ID = 'ccdae-traffic';
 const MVT_SOURCE_ID = 'ccdae-traffic-mvt';
@@ -104,20 +105,34 @@ class TrafficMapController {
         this.onUpdate = this.onUpdate.bind(this);
         this.onRangeInput = this.onRangeInput.bind(this);
         this.togglePlayback = this.togglePlayback.bind(this);
+        this.syncTimelineBubble = this.syncTimelineBubble.bind(this);
         this.historicalRoadIds = new Set();
         this.pendingHistory = [];
         this.timeline = [];
         this.frameIndex = 0;
         this.playTimer = null;
+        this.historyAnimationFrame = null;
         this.timelineRequest = 0;
         this.rangeElement = document.getElementById('traffic-timeline-range');
         this.playElement = document.getElementById('traffic-timeline-play');
         this.selectedElement = document.getElementById('traffic-timeline-selected');
+        this.bubbleElement = document.getElementById('traffic-timeline-bubble');
+        this.ticksElement = document.getElementById('traffic-timeline-ticks');
         this.map = createMap(container, { center: [-57.6806, -16.0722], zoom: 13 });
+        this.map.addControl(new MapLegendControl({
+            title: 'Condição das vias', subtitle: 'Velocidade média', badge: 'km/h',
+            rows: [
+                { color: TRAFFIC_COLORS.livre, label: 'Livre', value: '> 40' },
+                { color: TRAFFIC_COLORS.moderado, label: 'Moderado', value: '20–40' },
+                { color: TRAFFIC_COLORS.intenso, label: 'Intenso', value: '10–20' },
+                { color: TRAFFIC_COLORS.parado, label: 'Parado', value: '< 10' },
+            ],
+        }), 'top-right');
         this.map.on('load', () => this.onLoad());
         window.addEventListener('update-transito-map', this.onUpdate);
         this.rangeElement?.addEventListener('input', this.onRangeInput);
         this.playElement?.addEventListener('click', this.togglePlayback);
+        window.addEventListener('resize', this.syncTimelineBubble);
         this.loadTimeline(this.districtId);
     }
 
@@ -139,7 +154,6 @@ class TrafficMapController {
             this.map.addSource(MVT_SOURCE_ID, {
                 type: 'vector',
                 url: martinTilejsonUrl(this.martinBaseUrl, 'vias'),
-                promoteId: { vias: 'id' },
             });
         }
 
@@ -152,11 +166,16 @@ class TrafficMapController {
             ...(initialRoadFilter ? { filter: initialRoadFilter } : {}),
             paint: {
                 'line-color': ['coalesce', ['feature-state', 'historicalColor'], this.martinEnabled
-                    ? ['match', ['downcase', ['to-string', ['coalesce', ['get', 'nivel_congestionamento'], 'livre']]],
-                        'moderado', TRAFFIC_COLORS.moderado,
-                        'intenso', TRAFFIC_COLORS.intenso,
-                        'parado', TRAFFIC_COLORS.parado,
-                        TRAFFIC_COLORS.livre]
+                    ? ['let', 'level', ['downcase', ['to-string', ['coalesce', ['get', 'nivel_congestionamento'], '0']]],
+                        ['match', ['var', 'level'],
+                            'moderado', TRAFFIC_COLORS.moderado,
+                            'intenso', TRAFFIC_COLORS.intenso,
+                            'parado', TRAFFIC_COLORS.parado,
+                            ['case',
+                                ['>=', ['to-number', ['var', 'level'], 0], 80], TRAFFIC_COLORS.parado,
+                                ['>=', ['to-number', ['var', 'level'], 0], 55], TRAFFIC_COLORS.intenso,
+                                ['>=', ['to-number', ['var', 'level'], 0], 30], TRAFFIC_COLORS.moderado,
+                                TRAFFIC_COLORS.livre]]]
                     : ['get', 'color']],
                 'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 9, 6],
                 'line-opacity': 0.9,
@@ -194,6 +213,11 @@ class TrafficMapController {
         this.loaded = true;
         this.render(this.pendingPayload);
         this.applyHistory(this.pendingHistory);
+        this.map.on('sourcedata', (event) => {
+            if (event.sourceId === MVT_SOURCE_ID && event.isSourceLoaded && this.pendingHistory.length) {
+                this.applyHistory(this.pendingHistory);
+            }
+        });
         this.map.resize();
     }
 
@@ -220,6 +244,7 @@ class TrafficMapController {
             if (requestId !== this.timelineRequest) return;
             this.timeline = Array.isArray(payload.timeline) ? payload.timeline : [];
             this.frameIndex = Math.max(this.timeline.length - 1, 0);
+            this.renderTimelineTicks();
             this.renderTimeline();
             this.publishFrame();
         } catch (error) {
@@ -243,7 +268,43 @@ class TrafficMapController {
     publishFrame() {
         const frame = this.timeline[this.frameIndex] ?? null;
         this.pendingHistory = frame?.data ?? [];
-        if (this.loaded) this.applyHistory(this.pendingHistory);
+        if (!this.loaded) return;
+        if (this.historyAnimationFrame) window.cancelAnimationFrame(this.historyAnimationFrame);
+        this.historyAnimationFrame = window.requestAnimationFrame(() => {
+            this.historyAnimationFrame = null;
+            this.applyHistory(this.pendingHistory);
+        });
+    }
+
+    renderTimelineTicks() {
+        if (!this.ticksElement) return;
+        this.ticksElement.replaceChildren();
+        this.timeline.forEach((frame, index) => {
+            const tick = document.createElement('button');
+            tick.type = 'button';
+            tick.className = 'traffic-timeline-tick';
+            tick.title = frame.label ?? `Leitura ${index + 1}`;
+            tick.tabIndex = -1;
+            tick.addEventListener('click', () => {
+                this.stopPlayback();
+                this.frameIndex = index;
+                this.renderTimeline();
+                this.publishFrame();
+            });
+            this.ticksElement.appendChild(tick);
+        });
+    }
+
+    syncTimelineBubble() {
+        if (!this.rangeElement || !this.bubbleElement) return;
+        const maximum = Math.max(this.timeline.length - 1, 0);
+        const progress = maximum ? this.frameIndex / maximum : 0;
+        const thumbDiameter = 22;
+        const thumbRadius = thumbDiameter / 2;
+        const usableWidth = Math.max(0, this.rangeElement.clientWidth - thumbDiameter);
+        this.bubbleElement.style.left = `${thumbRadius + usableWidth * progress}px`;
+        this.bubbleElement.style.transform = 'translateX(-50%)';
+        this.bubbleElement.textContent = this.timeline[this.frameIndex]?.label?.split(' ').at(-1) ?? '--:--';
     }
 
     renderTimeline() {
@@ -254,10 +315,13 @@ class TrafficMapController {
             this.rangeElement.value = String(this.frameIndex);
             this.rangeElement.disabled = this.timeline.length < 2;
             const progress = maximum ? (this.frameIndex / maximum) * 100 : 0;
-            const inactive = document.documentElement.classList.contains('dark') ? 'rgb(75 85 99)' : 'rgb(229 231 235)';
-            this.rangeElement.style.background = `linear-gradient(to right,rgb(var(--primary-600)) 0%,rgb(var(--primary-600)) ${progress}%,${inactive} ${progress}%,${inactive} 100%)`;
+            this.rangeElement.style.setProperty('--traffic-progress', `${progress}%`);
             this.rangeElement.setAttribute('aria-valuetext', frame?.label ?? 'Sem histórico');
+            this.syncTimelineBubble();
         }
+        this.ticksElement?.querySelectorAll('.traffic-timeline-tick').forEach((tick, index) => {
+            tick.classList.toggle('active', index === this.frameIndex);
+        });
         if (this.playElement) this.playElement.disabled = this.timeline.length < 2;
         this.setTimelineStatus(frame?.label ?? 'Sem histórico');
     }
@@ -365,7 +429,9 @@ class TrafficMapController {
         window.removeEventListener('update-transito-map', this.onUpdate);
         this.rangeElement?.removeEventListener('input', this.onRangeInput);
         this.playElement?.removeEventListener('click', this.togglePlayback);
+        window.removeEventListener('resize', this.syncTimelineBubble);
         this.stopPlayback();
+        if (this.historyAnimationFrame) window.cancelAnimationFrame(this.historyAnimationFrame);
         this.map.remove();
     }
 }

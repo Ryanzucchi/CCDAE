@@ -20,6 +20,10 @@ class Distrito extends Model
         'latitude',
         'longitude',
         'cidade',
+        'populacao',
+        'populacao_fonte',
+        'populacao_atualizada_em',
+        'consumo_medio_kwh',
         'geojson',
     ];
 
@@ -27,6 +31,9 @@ class Distrito extends Model
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
         'geojson' => 'array',
+        'populacao' => 'integer',
+        'populacao_atualizada_em' => 'datetime',
+        'consumo_medio_kwh' => 'decimal:2',
     ];
 
     public function estacoes()
@@ -78,11 +85,6 @@ class Distrito extends Model
     {
         return $this->belongsToMany(RegiaoClimatica::class)
                     ->withPivot('start_time', 'end_time');
-    }
-
-    public function regiaoClimatica()
-    {
-        return $this->belongsTo(RegiaoClimatica::class);
     }
 
     /**

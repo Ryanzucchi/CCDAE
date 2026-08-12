@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'ibge' => [
+        'census_sectors_url' => env(
+            'IBGE_CENSUS_SECTORS_URL',
+            'https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022/Agregados_por_Setores_Censitarios/malha_com_atributos/setores/gpkg/UF/MT/MT_setores_CD2022.gpkg',
+        ),
+    ],
+
 ];

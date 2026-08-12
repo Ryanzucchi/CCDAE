@@ -59,6 +59,10 @@ class DistritoResource extends Resource
                                     }
                                 })
                         ),
+                    TextInput::make('populacao')->label('População')->numeric()->minValue(0),
+                    TextInput::make('populacao_fonte')->label('Fonte da população')->readOnly()->dehydrated(false),
+                    TextInput::make('consumo_medio_kwh')->label('Consumo médio (kWh/dia)')->numeric()->minValue(0)
+                        ->helperText('Se vazio, o mapa exibirá uma estimativa baseada na população.'),
                     \Filament\Forms\Components\TextInput::make('latitude')
                         ->numeric()
                         ->readOnly()

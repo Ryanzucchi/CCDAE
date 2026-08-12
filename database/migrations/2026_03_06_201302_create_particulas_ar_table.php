@@ -13,8 +13,6 @@ return new class extends Migration
     {
         Schema::create('particulas_ar', function (Blueprint $table) {
 
-            $table->id();
-
             $table->foreignId('distrito_id')->constrained()->cascadeOnDelete();
 
             $table->timestamp('timestamp');

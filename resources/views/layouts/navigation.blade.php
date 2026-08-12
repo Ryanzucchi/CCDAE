@@ -18,6 +18,8 @@
                     <x-nav-link :href="url('/transito')" :active="request()->is('transito*')">
                         Trânsito e Mobilidade
                     </x-nav-link>
+                    <x-nav-link :href="url('/energia')" :active="request()->is('energia*')">Energia</x-nav-link>
+                    <x-nav-link :href="url('/internet')" :active="request()->is('internet*')">Internet</x-nav-link>
                 </div>
             </div>
 
@@ -76,6 +78,8 @@
             <x-responsive-nav-link :href="url('/transito')" :active="request()->is('transito*')">
                 Trânsito e Mobilidade
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="url('/energia')" :active="request()->is('energia*')">Energia</x-responsive-nav-link>
+            <x-responsive-nav-link :href="url('/internet')" :active="request()->is('internet*')">Internet</x-responsive-nav-link>
         </div>
 
         <!-- Responsive Settings Options -->

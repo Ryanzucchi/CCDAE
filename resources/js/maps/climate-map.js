@@ -1,5 +1,6 @@
 import { bbox } from '@turf/bbox';
 import { centroid } from '@turf/centroid';
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon';
 import { featureCollection, point } from '@turf/helpers';
 import {
     createMap,
@@ -124,6 +125,30 @@ function windPoints(feature, properties) {
     });
 }
 
+function territorialSamplePoints(feature, properties) {
+    if (!['Polygon', 'MultiPolygon'].includes(feature.geometry?.type)) {
+        const center = centroid(feature, { properties });
+        return [center];
+    }
+    const bounds = bbox(feature);
+    const longitudeSpan = Math.max(0.0001, bounds[2] - bounds[0]);
+    const latitudeSpan = Math.max(0.0001, bounds[3] - bounds[1]);
+    const columns = Math.max(3, Math.min(8, Math.ceil(longitudeSpan / 0.0022)));
+    const rows = Math.max(3, Math.min(8, Math.ceil(latitudeSpan / 0.0022)));
+    const samples = [];
+    for (let row = 0; row < rows; row++) {
+        for (let column = 0; column < columns; column++) {
+            const candidate = point([
+                bounds[0] + ((column + 0.5) / columns) * longitudeSpan,
+                bounds[1] + ((row + 0.5) / rows) * latitudeSpan,
+            ], properties);
+            if (booleanPointInPolygon(candidate, feature)) samples.push(candidate);
+        }
+    }
+    if (!samples.length) samples.push(centroid(feature, { properties }));
+    return samples;
+}
+
 function buildFeatures(districts, metric) {
     const districtFeatures = [];
     const effectFeatures = [];
@@ -153,15 +178,18 @@ function buildFeatures(districts, metric) {
         if (metric === 'vento') {
             effectFeatures.push(...windPoints(feature, properties));
         } else if (properties.metricValue !== null) {
-            const center = centroid(feature, {
-                properties: {
+            const sampleProperties = {
                     ...properties,
                     kind: 'heat',
                     intensity: Math.max(0.18, (properties.metricValue - minimum) / range),
-                },
+                    spatialModel: 'district-distributed',
+                };
+            const samples = territorialSamplePoints(feature, sampleProperties);
+            samples.forEach((sample, index) => {
+                sample.id = `heat-${district.id}-${index}`;
+                sample.properties.sampleCount = samples.length;
+                effectFeatures.push(sample);
             });
-            center.id = `heat-${district.id}`;
-            effectFeatures.push(center);
         }
     });
 

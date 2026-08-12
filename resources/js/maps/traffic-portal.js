@@ -7,11 +7,32 @@ const DEFINITIONS = {
     volume: { title: 'Volume de veículos', colors: ['#e0f2fe', '#38bdf8', '#2563eb', '#312e81'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1800, influence: 0.0030 },
     acidentes: { title: 'Acidentes', colors: ['#ffedd5', '#fb923c', '#ef4444', '#7f1d1d'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1550, influence: 0.0028 },
     obras: { title: 'Obras', colors: ['#ecfccb', '#84cc16', '#ca8a04', '#713f12'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1450, influence: 0.0028 },
+    densidade: { title: 'Densidade de postes', colors: ['#fef3c7', '#fbbf24', '#f97316', '#b91c1c'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1450, influence: 0.0018 },
+    consumo: { title: 'Consumo médio', colors: ['#dbeafe', '#38bdf8', '#7c3aed', '#4c1d95'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1750, influence: 0.0050 },
+    populacao: { title: 'População', colors: ['#dcfce7', '#22c55e', '#0f766e', '#164e63'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1850, influence: 0.0050 },
+    densidade_rede: { title: 'Densidade da rede', colors: ['#cffafe', '#22d3ee', '#2563eb', '#312e81'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1550, influence: 0.0022 },
+    demanda: { title: 'Demanda potencial', colors: ['#ecfeff', '#06b6d4', '#7c3aed', '#4c1d95'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1750, influence: 0.0050 },
 };
 
 const intensityData = new Map();
 const maps = new WeakMap();
+const COLOR_BANDS = ['#172554', '#1d4ed8', '#06b6d4', '#10b981', '#84cc16', '#facc15', '#f97316', '#ef4444', '#a21caf', '#39ff14'];
+const COLOR_BAND_SIZE = 0.10;
 const CLASSIFICATIONS = ['Mínimo', 'Muito baixo', 'Baixo', 'Baixo moderado', 'Moderado baixo', 'Moderado', 'Moderado alto', 'Elevado', 'Alto', 'Muito alto', 'Severo', 'Muito severo', 'Crítico', 'Extremo', 'Máximo'];
+
+function colorBandFor(weight) {
+    return Math.min(COLOR_BANDS.length - 1, Math.floor(Math.max(0, Math.min(1, weight)) / COLOR_BAND_SIZE));
+}
+
+function discreteGradient() {
+    const stops = [];
+    COLOR_BANDS.forEach((color, index) => {
+        const start = index * 10;
+        const end = (index + 1) * 10;
+        stops.push(`${color} ${start}%`, `${color} ${end}%`);
+    });
+    return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
 
 function classificationFor(weight) {
     const level = Math.min(15, Math.max(1, Math.floor(Math.max(0, Math.min(1, weight)) * 15) + 1));
@@ -31,11 +52,11 @@ function heightScale(value) {
     return lower + (upper - lower) * smoothProgress;
 }
 
-async function loadIntensityData(type, start, end) {
-    const cacheKey = `${type}:${start}:${end}`;
+async function loadIntensityData(type, start, end, endpoint = '/api/transito/intensidade') {
+    const cacheKey = `${endpoint}:${type}:${start}:${end}`;
     if (intensityData.has(cacheKey)) return intensityData.get(cacheKey);
-    const query = new URLSearchParams({ tipo: type, inicio: start, fim: end });
-    const response = await fetch(`/api/transito/intensidade?${query}`, { headers: { Accept: 'application/json' } });
+    const query = endpoint.includes('/transito/') ? `?${new URLSearchParams({ tipo: type, inicio: start, fim: end })}` : '';
+    const response = await fetch(`${endpoint}${query}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     intensityData.set(cacheKey, payload);
@@ -79,7 +100,7 @@ function buildWaveSurface(data, type, definition) {
         latitude: Number(feature.geometry?.coordinates?.[1]),
         weight: Number(feature.properties?.weight) || 0,
     })).filter((point) => Number.isFinite(point.longitude) && Number.isFinite(point.latitude));
-    const padding = type === 'infracoes' ? 0.007 : 0.011;
+    const padding = type === 'infracoes' ? 0.007 : (['consumo', 'populacao', 'densidade'].includes(type) ? 0.004 : 0.011);
     const west = Math.min(...points.map((point) => point.longitude)) - padding;
     const east = Math.max(...points.map((point) => point.longitude)) + padding;
     const south = Math.min(...points.map((point) => point.latitude)) - padding;
@@ -93,28 +114,11 @@ function buildWaveSurface(data, type, definition) {
     const colors = [];
     const indices = [];
     const spatialIndex = buildSpatialIndex(points, definition.influence);
-    const colorStops = definition.colors.map((color) => {
+    const colorStops = COLOR_BANDS.map((color) => {
         const value = Number.parseInt(color.slice(1), 16);
         return [(value >> 16 & 255) / 255, (value >> 8 & 255) / 255, (value & 255) / 255];
     });
-    const maximumColorValue = Number.parseInt(definition.maximumColor.slice(1), 16);
-    const maximumColor = [(maximumColorValue >> 16 & 255) / 255, (maximumColorValue >> 8 & 255) / 255, (maximumColorValue & 255) / 255];
-    const extremeColorValue = Number.parseInt(definition.extremeColor.slice(1), 16);
-    const extremeColor = [(extremeColorValue >> 16 & 255) / 255, (extremeColorValue >> 8 & 255) / 255, (extremeColorValue & 255) / 255];
-
-    const interpolateColor = (value) => {
-        const peakStart = 0.965;
-        if (value > 0.99) return extremeColor;
-        if (value >= peakStart) {
-            const amount = Math.min(1, (value - peakStart) / (0.99 - peakStart));
-            return colorStops[colorStops.length - 1].map((channel, index) => channel + (maximumColor[index] - channel) * amount);
-        }
-        const scaled = Math.min(0.999, Math.max(0, value / peakStart)) * (colorStops.length - 1);
-        const start = Math.floor(scaled);
-        const amount = scaled - start;
-        const end = Math.min(start + 1, colorStops.length - 1);
-        return colorStops[start].map((channel, index) => channel + (colorStops[end][index] - channel) * amount);
-    };
+    const discreteColor = (value) => colorStops[colorBandFor(value)];
 
     for (let row = 0; row <= divisions; row++) {
         for (let column = 0; column <= divisions; column++) {
@@ -125,7 +129,7 @@ function buildWaveSurface(data, type, definition) {
             const coordinate = maplibregl.MercatorCoordinate.fromLngLat([longitude, latitude], 5 + relativeHeight * definition.altitude);
             positions.push(coordinate.x, coordinate.y, coordinate.z);
             weights.push(value);
-            colors.push(...interpolateColor(value));
+            colors.push(...discreteColor(value));
         }
     }
     for (let row = 0; row < divisions; row++) {
@@ -320,6 +324,9 @@ function createHoverPointLayer(id) {
 async function initializeIntensityMap(container) {
     if (maps.has(container)) return maps.get(container);
     const type = container.dataset.mapType;
+    const energyMap = container.hasAttribute('data-energy-analytic-map');
+    const internetMap = container.hasAttribute('data-internet-analytic-map');
+    const endpoint = internetMap ? '/api/internet/analiticos' : (energyMap ? '/api/energia/analiticos' : '/api/transito/intensidade');
     const definition = DEFINITIONS[type];
     if (!definition) return null;
     const status = container.parentElement?.querySelector('[data-traffic-wave-status]');
@@ -331,7 +338,7 @@ async function initializeIntensityMap(container) {
     };
     const selectedEnd = pageQuery.get('fim') || toLocalInput(new Date());
     const selectedStart = pageQuery.get('inicio') || toLocalInput(new Date(Date.now() - 24 * 60 * 60 * 1000));
-    map.addControl(new TimeRangeControl({
+    if (!energyMap) map.addControl(new TimeRangeControl({
         start: selectedStart,
         end: selectedEnd,
         onApply: ({ start, end }) => {
@@ -345,7 +352,7 @@ async function initializeIntensityMap(container) {
 
     map.on('load', async () => {
         try {
-            const payload = await loadIntensityData(type, selectedStart, selectedEnd);
+            const payload = await loadIntensityData(type, selectedStart, selectedEnd, endpoint);
             const data = payload[type] ?? featureCollection([]);
             if (!data.features?.length) {
                 if (status) status.textContent = type === 'infracoes'
@@ -357,10 +364,10 @@ async function initializeIntensityMap(container) {
             map.addControl(new MapLegendControl({
                 title: definition.title,
                 subtitle: 'Intensidade relativa na cidade',
-                badge: '15 níveis',
+                badge: '10 faixas de 10%',
                 minimum: formatScaleValue(data.properties?.minimum ?? 0),
                 maximum: formatScaleValue(data.properties?.maximum ?? 0),
-                gradient: `linear-gradient(90deg,${definition.colors[0]} 0%,${definition.colors[1]} 32%,${definition.colors[2]} 65%,${definition.colors[3]} 96.49%,#f0abfc 96.5%,#f0abfc 99%,#39ff14 99.01%,#39ff14 100%)`,
+                gradient: discreteGradient(),
             }), 'top-right');
             const surface = buildWaveSurface(data, type, definition);
             const waveLayer = createWaveLayer(`traffic-${type}-wave-surface`, surface);
@@ -402,6 +409,7 @@ async function initializeIntensityMap(container) {
                 const title = document.createElement('strong');
                 const details = document.createElement('div');
                 const classification = classificationFor(nearest.weight);
+                const colorBand = colorBandFor(nearest.weight);
                 title.textContent = nearest.feature.properties?.name || 'Local sem via identificada';
                 details.className = 'mt-1 space-y-0.5';
                 const rows = [
@@ -409,6 +417,7 @@ async function initializeIntensityMap(container) {
                     `Classificação: ${classification.label}`,
                     `Nível exponencial: ${classification.level} de 15`,
                     `Escala da cidade: ${(nearest.weight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,
+                    `Faixa de cor: ${colorBand * 10}–${(colorBand + 1) * 10}%`,
                 ];
                 if (Number(nearest.feature.properties?.streets) > 1) rows.push(`${nearest.feature.properties.streets} vias nesta área`);
                 rows.forEach((text) => { const row = document.createElement('div'); row.textContent = text; details.appendChild(row); });
@@ -431,7 +440,7 @@ async function initializeIntensityMap(container) {
 }
 
 function initializePortal() {
-    document.querySelectorAll('[data-traffic-wave-map]').forEach(initializeIntensityMap);
+    document.querySelectorAll('[data-traffic-wave-map], [data-energy-analytic-map], [data-internet-analytic-map]').forEach(initializeIntensityMap);
 }
 
 document.addEventListener('DOMContentLoaded', initializePortal, { once: true });

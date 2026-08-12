@@ -18,9 +18,11 @@ $intervalo = max(1, min(59, (int) env('COLETA_DADOS_INTERVALO', 20)));
 Schedule::job(new CollectTrafficData)
     ->cron("*/{$intervalo} * * * *")
     ->name('collect-traffic-data')
+    ->onOneServer()
     ->withoutOverlapping();
 
 Schedule::job(new CollectClimateData)
     ->cron("*/{$intervalo} * * * *")
     ->name('collect-climate-data')
+    ->onOneServer()
     ->withoutOverlapping();

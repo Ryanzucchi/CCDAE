@@ -29,6 +29,8 @@ require __DIR__.'/auth.php';
 Route::get('/api/infraestrutura/geojson', \App\Http\Controllers\Api\InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
 Route::get('/api/infrastructure-map/buildings', \App\Http\Controllers\Api\InfrastructureBuildingsController::class)->name('api.infrastructure-map.buildings');
 Route::get('/api/transito/timeline', \App\Http\Controllers\Api\TrafficTimelineController::class)->name('api.transito.timeline');
+Route::middleware('auth')->get('/api/energia/analiticos', [\App\Http\Controllers\EnergiaController::class, 'analytics'])->name('api.energia.analiticos');
+Route::middleware('auth')->get('/api/internet/analiticos', [\App\Http\Controllers\InternetController::class, 'analytics'])->name('api.internet.analiticos');
 
 Route::get('/test-login', function () {
     $u = \App\Models\User::where('email', 'ryan@admin.com')->first();

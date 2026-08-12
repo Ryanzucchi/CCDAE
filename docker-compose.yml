@@ -1,5 +1,6 @@
 services:
   phpccdae:
+    image: ccdae-app:local
     container_name: php-ccdae
     build:
       context: .
@@ -33,6 +34,34 @@ services:
     networks:
       - default
     restart: always
+
+  queue:
+    image: ccdae-app:local
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=120
+    volumes:
+      - ./:/var/www/html
+      - ./../storage:/var/www/html/storage
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+    restart: unless-stopped
+
+  scheduler:
+    image: ccdae-app:local
+    command: php artisan schedule:work
+    volumes:
+      - ./:/var/www/html
+      - ./../storage:/var/www/html/storage
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+    restart: unless-stopped
 
   martin:
     image: ghcr.io/maplibre/martin:1.13.0

@@ -9,6 +9,7 @@ RUN apt-get update \
     && apt-get install -y \
         libldap2-dev \
         libzip-dev \
+        gdal-bin \
         zip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,4 +37,3 @@ RUN docker-php-ext-install intl
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/docker-php.ini
-

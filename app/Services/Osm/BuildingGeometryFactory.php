@@ -6,6 +6,15 @@ class BuildingGeometryFactory
 {
     public function fromElement(array $element): ?array
     {
+        if (($element['type'] ?? null) === 'gba') {
+            $geometry = $element['geojson'] ?? null;
+            if (! is_array($geometry)) return null;
+            if (($geometry['type'] ?? null) === 'Polygon') {
+                return ['type' => 'MultiPolygon', 'coordinates' => [$geometry['coordinates'] ?? []]];
+            }
+            return ($geometry['type'] ?? null) === 'MultiPolygon' ? $geometry : null;
+        }
+
         if (($element['type'] ?? null) === 'way') {
             $ring = $this->ring($element['geometry'] ?? []);
             return $ring ? ['type' => 'MultiPolygon', 'coordinates' => [[$ring]]] : null;

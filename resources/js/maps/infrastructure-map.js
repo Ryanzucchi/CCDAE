@@ -165,7 +165,7 @@ function editUrl(kind, id) {
 
 function popupContent(properties) {
     const titles = {
-        road: 'Via', central: 'Central', cable: 'Cabo', equipment: 'Equipamento', pole: 'Poste', antenna: 'Antena', building: 'Construção',
+        road: 'Via', central: 'Central', cable: 'Cabo', equipment: 'Equipamento', pole: 'Poste', antenna: 'Antena', building: 'Construção 3D',
     };
     const container = document.createElement('div');
     container.className = 'ccdae-infrastructure-popup';

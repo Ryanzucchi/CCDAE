@@ -18,6 +18,8 @@ class InfraestruturaGeojsonController extends Controller
     {
         $distrito_id = $request->query('distrito_id');
         $includeFeatures = $request->boolean('include_features', true);
+        $energyOnly = $request->boolean('energy_only');
+        $energyOverview = $energyOnly && $request->boolean('energy_overview') && ! $distrito_id;
         $bounds = null;
 
         if (! $includeFeatures && $distrito_id && DB::getDriverName() === 'pgsql') {
@@ -58,27 +60,35 @@ class InfraestruturaGeojsonController extends Controller
         $antenas = [];
         $equipamentos = [];
 
-        if ($includeFeatures && $distrito_id) {
+        if ($includeFeatures && ($distrito_id || $energyOverview)) {
             $cabeamentos = Cabeamento::where(function ($query) use ($distrito_id) {
+                if (! $distrito_id) return;
                 $query->where('distrito_id', $distrito_id)
                     ->orWhereHas('posteOrigem', fn ($poste) => $poste->where('distrito_id', $distrito_id))
                     ->orWhereHas('posteDestino', fn ($poste) => $poste->where('distrito_id', $distrito_id))
                     ->orWhereHas('centralOrigem', fn ($central) => $central->where('distrito_id', $distrito_id))
                     ->orWhereHas('centralDestino', fn ($central) => $central->where('distrito_id', $distrito_id));
-            })
-                ->limit(20000)->get(['id', 'geojson', 'nome', 'tipo_cabo', 'estado_conservacao', 'distrito_id', 'poste_origem_id', 'poste_destino_id', 'central_origem_id', 'central_destino_id']);
+            })->when($energyOnly, fn ($query) => $query->whereIn('tipo_cabo', ['eletrico_baixa_tensao', 'eletrico_alta_tensao']))
+                ->when($energyOverview, fn ($query) => $query->whereRaw('1 = 0'))
+                ->limit(40000)->get(['id', 'geojson', 'nome', 'codigo_patrimonio', 'tipo_cabo', 'capacidade',
+                    'revestimento', 'subterraneo', 'extensao_metros', 'estado_conservacao', 'distrito_id',
+                    'poste_origem_id', 'poste_destino_id', 'central_origem_id', 'central_destino_id']);
 
-            $postes = Poste::where('distrito_id', $distrito_id)
-                ->limit(20000)->get([
+            $postes = Poste::when($distrito_id, fn ($query) => $query->where('distrito_id', $distrito_id))
+                ->limit($energyOnly ? 40000 : 20000)->get([
                     'id', 'latitude', 'longitude', 'codigo_patrimonio', 'material',
                     'estado_conservacao', 'altura_metros', 'resistencia_kg',
                     'possui_iluminacao', 'data_instalacao', 'ultima_manutencao',
                 ]);
 
-            $antenas = Antena::where('distrito_id', $distrito_id)
+            $antenas = $energyOnly ? collect() : Antena::where('distrito_id', $distrito_id)
                 ->limit(1000)->get(['id', 'latitude', 'longitude', 'codigo_patrimonio', 'tipo_sinal', 'estado_conservacao']);
 
-            $equipamentos = EquipamentoInfraestrutura::where('distrito_id', $distrito_id)
+            $equipamentos = EquipamentoInfraestrutura::when($distrito_id, fn ($query) => $query->where('distrito_id', $distrito_id))
+                ->when($energyOverview,
+                    fn ($query) => $query->whereRaw('LOWER(tipo) = ?', ['transformador']),
+                    fn ($query) => $query->when($energyOnly, fn ($energyQuery) => $energyQuery->whereIn(DB::raw('LOWER(tipo)'), ['transformador', 'medidor'])),
+                )
                 ->limit(20000)->get([
                     'id', 'latitude', 'longitude', 'nome', 'codigo_patrimonio',
                     'tipo', 'modelo', 'estado_conservacao', 'poste_id', 'central_id',

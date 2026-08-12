@@ -139,7 +139,7 @@
                 <div class="legend-item"><span class="legend-color border border-black" style="background:#9ca3af"></span>Postes</div>
                 <div class="legend-item"><span class="legend-color" style="background:#ec4899"></span>Antenas Telecom</div>
                 <div class="legend-item"><span class="legend-color" style="background:#10b981"></span>Equipamentos</div>
-                <div class="legend-item"><span class="legend-color" style="background:#78716c"></span>Construções 3D locais</div>
+                <div class="legend-item"><span class="legend-color" style="background:#78716c"></span>Construções 3D · OSM + GBA ODbL</div>
                 <div class="legend-item mt-2"><strong>Fluxo de Trânsito</strong></div>
                 <div class="legend-item"><span class="legend-line" style="background:#22c55e"></span>Via Livre</div>
                 <div class="legend-item"><span class="legend-line" style="background:#eab308"></span>Moderado</div>

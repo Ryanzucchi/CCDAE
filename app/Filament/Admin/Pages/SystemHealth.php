@@ -36,45 +36,18 @@ class SystemHealth extends Page implements HasTable
 
     public function startQueueWorker()
     {
-        $base = base_path();
-        $logQueue = storage_path('logs/queue-worker.log');
-        $logSchedule = storage_path('logs/schedule-worker.log');
-        
-        $cmdQueue = "nohup php {$base}/artisan queue:work > {$logQueue} 2>&1 & echo $!";
-        $cmdSchedule = "nohup php {$base}/artisan schedule:work > {$logSchedule} 2>&1 & echo $!";
-        
-        if (function_exists('shell_exec')) {
-            shell_exec($cmdQueue);
-            shell_exec($cmdSchedule);
-        } else {
-            @exec($cmdQueue);
-            @exec($cmdSchedule);
-        }
-        
-        Cache::put('queue_worker_last_seen', now()->timestamp, 300);
-        
         Notification::make()
-            ->title('Background Workers (Queue & Scheduler) iniciados!')
-            ->success()
+            ->title('Workers são gerenciados pelo Docker')
+            ->body('Use docker compose up -d queue scheduler. O painel não inicia processos para evitar instâncias duplicadas.')
+            ->info()
             ->send();
     }
 
     public function stopQueueWorker()
     {
-        \Illuminate\Support\Facades\Artisan::call('queue:restart');
-        
-        // Pkill the schedule:work process since Laravel has no built-in command to gracefully stop it
-        $cmdStopSchedule = "pkill -f 'artisan schedule:work'";
-        if (function_exists('shell_exec')) {
-            shell_exec($cmdStopSchedule);
-        } else {
-            @exec($cmdStopSchedule);
-        }
-
-        Cache::forget('queue_worker_last_seen');
-        
         Notification::make()
-            ->title('Sinal de parada enviado para Fila e Scheduler!')
+            ->title('Workers são gerenciados pelo Docker')
+            ->body('Use docker compose stop queue scheduler para interrompê-los de forma controlada.')
             ->warning()
             ->send();
     }

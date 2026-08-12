@@ -11,11 +11,14 @@ use InvalidArgumentException;
 
 class SyncOsmBuildingsCommand extends Command
 {
-    protected $signature = 'osm:sync-buildings
+    /** Mantém compatibilidade com scripts de sincronização anteriores. */
+    protected $aliases = ['osm:sync-buildings'];
+
+    protected $signature = 'gba:sync-buildings
         {--district= : ID numérico do distrito}
         {--bbox= : minLng,minLat,maxLng,maxLat}
         {--list : Lista os distritos disponíveis}';
-    protected $description = 'Sincroniza construções do OpenStreetMap para uma área limitada';
+    protected $description = 'Sincroniza construções OSM e complementa footprints com GBA ODbL';
 
     public function handle(BuildingImportService $importer): int
     {
@@ -54,7 +57,7 @@ class SyncOsmBuildingsCommand extends Command
         $districtId = $this->option('district');
         if (!$districtId) throw new InvalidArgumentException('Informe --district com um ID numérico ou utilize --bbox. Use --list para consultar os distritos.');
         if (!ctype_digit((string) $districtId) || (int) $districtId < 1) {
-            throw new InvalidArgumentException('O valor de --district deve ser um ID numérico. Use: php artisan osm:sync-buildings --list');
+            throw new InvalidArgumentException('O valor de --district deve ser um ID numérico. Use: php artisan gba:sync-buildings --list');
         }
         $district = Distrito::query()->find((int) $districtId);
         if (!$district) throw new InvalidArgumentException("Distrito {$districtId} não encontrado. Use --list para consultar os IDs disponíveis.");

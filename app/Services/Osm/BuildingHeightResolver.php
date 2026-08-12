@@ -14,7 +14,7 @@ class BuildingHeightResolver
 
         if ($height !== null) {
             $renderHeight = $height;
-            $source = 'osm_height';
+            $source = ($tags['source'] ?? null) === 'GlobalBuildingAtlas' ? 'gba_height' : 'osm_height';
         } elseif ($levels !== null) {
             $renderHeight = $levels * $metersPerLevel;
             $source = 'levels';

@@ -7,7 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Cache;
 use App\Services\Osm\Contracts\BuildingProvider;
-use App\Services\Osm\OverpassBuildingProvider;
+use App\Services\Osm\CommercialBuildingProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -16,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(BuildingProvider::class, OverpassBuildingProvider::class);
+        $this->app->bind(BuildingProvider::class, CommercialBuildingProvider::class);
     }
 
     /**

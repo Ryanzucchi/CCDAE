@@ -86,6 +86,7 @@ class CollectClimateData implements ShouldQueue
 
         try {
             $weatherData = null;
+            $weatherOrigin = ($weatherResponse && $weatherResponse->successful()) ? 'real' : 'simulado';
             if ($weatherResponse && $weatherResponse->successful()) {
                 $weatherData = $weatherResponse->json();
                 if (count($distritos) === 1) {
@@ -126,6 +127,7 @@ class CollectClimateData implements ShouldQueue
             }
 
             $aqData = null;
+            $airOrigin = ($aqResponse && $aqResponse->successful()) ? 'real' : 'simulado';
             if ($aqResponse && $aqResponse->successful()) {
                 $aqData = $aqResponse->json();
                 if (count($distritos) === 1) {
@@ -175,6 +177,7 @@ class CollectClimateData implements ShouldQueue
                         'timestamp' => $timestamp,
                         'temperatura' => $wCurrent['temperature_2m'] ?? 0,
                         'sensacao_termica' => $wCurrent['apparent_temperature'] ?? null,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
 
                     $winds[] = [
@@ -182,30 +185,35 @@ class CollectClimateData implements ShouldQueue
                         'timestamp' => $timestamp,
                         'velocidade' => $wCurrent['wind_speed_10m'] ?? 0,
                         'direcao' => $wCurrent['wind_direction_10m'] ?? 0,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
 
                     $rains[] = [
                         'distrito_id' => $distrito->id,
                         'timestamp' => $timestamp,
                         'precipitacao_mm' => $wCurrent['precipitation'] ?? 0,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
 
                     $pressures[] = [
                         'distrito_id' => $distrito->id,
                         'timestamp' => $timestamp,
                         'pressao_hpa' => $wCurrent['surface_pressure'] ?? 0,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
 
                     $radiations[] = [
                         'distrito_id' => $distrito->id,
                         'timestamp' => $timestamp,
                         'radiacao_w_m2' => $wCurrent['shortwave_radiation'] ?? 0,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
 
                     $uvs[] = [
                         'distrito_id' => $distrito->id,
                         'timestamp' => $timestamp,
                         'uv' => $wCurrent['uv_index'] ?? 0,
+                        'origem_dado' => $weatherOrigin, 'fonte_dado' => $weatherOrigin === 'real' ? 'Open-Meteo' : 'fallback_ccdae',
                     ];
                 }
 
@@ -222,30 +230,31 @@ class CollectClimateData implements ShouldQueue
                         'poeira' => $dustVal,
                         'areia' => $dustVal * 0.1,
                         'poluentes' => $aqCurrent['ozone'] ?? null,
+                        'origem_dado' => $airOrigin, 'fonte_dado' => $airOrigin === 'real' ? 'Open-Meteo Air Quality' : 'fallback_ccdae',
                     ];
                 }
             }
 
             if (!empty($temps)) {
-                DB::table('temperatura_registrada')->upsert($temps, ['distrito_id', 'timestamp'], ['temperatura', 'sensacao_termica']);
+                DB::table('temperatura_registrada')->upsert($temps, ['distrito_id', 'timestamp'], ['temperatura', 'sensacao_termica', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($winds)) {
-                DB::table('vento_registrado')->upsert($winds, ['distrito_id', 'timestamp'], ['velocidade', 'direcao']);
+                DB::table('vento_registrado')->upsert($winds, ['distrito_id', 'timestamp'], ['velocidade', 'direcao', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($rains)) {
-                DB::table('chuva_registrada')->upsert($rains, ['distrito_id', 'timestamp'], ['precipitacao_mm']);
+                DB::table('chuva_registrada')->upsert($rains, ['distrito_id', 'timestamp'], ['precipitacao_mm', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($pressures)) {
-                DB::table('pressao_atmosferica')->upsert($pressures, ['distrito_id', 'timestamp'], ['pressao_hpa']);
+                DB::table('pressao_atmosferica')->upsert($pressures, ['distrito_id', 'timestamp'], ['pressao_hpa', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($radiations)) {
-                DB::table('radiacao_solar')->upsert($radiations, ['distrito_id', 'timestamp'], ['radiacao_w_m2']);
+                DB::table('radiacao_solar')->upsert($radiations, ['distrito_id', 'timestamp'], ['radiacao_w_m2', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($uvs)) {
-                DB::table('indice_uv')->upsert($uvs, ['distrito_id', 'timestamp'], ['uv']);
+                DB::table('indice_uv')->upsert($uvs, ['distrito_id', 'timestamp'], ['uv', 'origem_dado', 'fonte_dado']);
             }
             if (!empty($particles)) {
-                DB::table('particulas_ar')->upsert($particles, ['distrito_id', 'timestamp'], ['pm25', 'pm10', 'poeira', 'areia', 'poluentes']);
+                DB::table('particulas_ar')->upsert($particles, ['distrito_id', 'timestamp'], ['pm25', 'pm10', 'poeira', 'areia', 'poluentes', 'origem_dado', 'fonte_dado']);
             }
 
             activity()

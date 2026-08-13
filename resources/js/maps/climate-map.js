@@ -95,6 +95,8 @@ function climateProperties(district, metric) {
         particles: district.particulas ?? null,
         pressure: district.pressao ?? null,
         timestamp: String(district.timestamp ?? 'N/A'),
+        dataOrigin: String(district.origem_dado ?? 'desconhecido'),
+        dataSource: district.fonte_dado ?? null,
     };
 }
 
@@ -216,6 +218,7 @@ function popupContent(properties) {
         ['PM2.5', properties.particles !== null ? `${properties.particles} µg/m³` : 'N/A'],
         ['Pressão', properties.pressure !== null ? `${properties.pressure} hPa` : 'N/A'],
         ['Última leitura', properties.timestamp ?? 'N/A'],
+        ['Origem do dado', properties.dataOrigin === 'real' ? `Real — ${properties.dataSource || 'fonte externa'}` : 'Simulado — fallback CCDAE'],
     ];
     rows.forEach(([label, value]) => {
         const row = document.createElement('div');

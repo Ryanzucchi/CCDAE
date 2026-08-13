@@ -70,7 +70,7 @@ class MapaClima extends Page
             $rows = DB::table($table)
                 ->where('timestamp', '>=', $since)
                 ->where('timestamp', '<=', $until)
-                ->get(array_merge(['distrito_id', 'timestamp'], $columns));
+                ->get(array_merge(['distrito_id', 'timestamp', 'origem_dado', 'fonte_dado'], $columns));
 
             foreach ($rows as $row) {
                 $stamp = Carbon::parse($row->timestamp)->format('Y-m-d H:i');
@@ -100,6 +100,8 @@ class MapaClima extends Page
                     'particulas' => $particulas?->pm25,
                     'pressao' => $pressao?->pressao_hpa,
                     'timestamp' => Carbon::createFromFormat('Y-m-d H:i', $stamp)->format('d/m/Y H:i'),
+                    'origem_dado' => $temp?->origem_dado ?? $vento?->origem_dado ?? $chuva?->origem_dado ?? 'desconhecido',
+                    'fonte_dado' => $temp?->fonte_dado ?? $vento?->fonte_dado ?? $chuva?->fonte_dado,
                 ];
             })->values()->all();
 

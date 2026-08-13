@@ -34,6 +34,9 @@ function normalizeHistoryReading(reading) {
         accidents: reading[4] ?? 0,
         works: reading[5] ?? 0,
         flooded: Boolean(reading[6]),
+        dataOrigin: reading[7] ?? 'desconhecido',
+        dataSource: reading[8] ?? null,
+        confidence: reading[9] ?? null,
     };
 }
 
@@ -82,6 +85,7 @@ function popupContent(properties) {
         ['Impacto logístico', String(properties.maintenanceImpact ?? 'não informado').toUpperCase()],
         ['Volume na hora', properties.vehicles !== undefined && properties.vehicles !== null ? `${properties.vehicles} veículos` : 'Não informado'],
         ['Ocorrências', `${Number(properties.accidents ?? 0)} acidente(s), ${Number(properties.works ?? 0)} obra(s)${properties.flooded ? ', alagamento' : ''}`],
+        ['Origem do dado', properties.dataOrigin === 'real' ? `Real — ${properties.dataSource || 'fonte externa'}` : (properties.dataOrigin === 'misto' ? `Misto — ${properties.dataSource || 'fonte real e estimativas'}` : 'Simulado — fallback CCDAE')],
     ];
     rows.forEach(([label, value]) => {
         const row = document.createElement('div');

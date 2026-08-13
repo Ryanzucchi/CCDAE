@@ -47,7 +47,7 @@ class RegistroTransito extends Model
         'emissao_co2',
         'indice_congestionamento',
         'nivel_servico',
-        'dados_avancados'
+        'dados_avancados', 'origem_dado', 'fonte_dado', 'confianca_dado'
     ];
 
     protected $casts = [

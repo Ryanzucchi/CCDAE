@@ -26,6 +26,7 @@ class TrafficTimelineController extends Controller
                     'registros.via_transito_id', 'registros.timestamp', 'registros.velocidade_media',
                     'registros.veiculos_total', 'registros.indice_congestionamento',
                     'registros.acidentes_ativos', 'registros.obras_ativas', 'registros.alagamento_ativo',
+                    'registros.origem_dado', 'registros.fonte_dado', 'registros.confianca_dado',
                 ]);
 
             return $rows->groupBy(fn ($row) => substr((string) $row->timestamp, 0, 13))
@@ -48,6 +49,7 @@ class TrafficTimelineController extends Controller
                             (int) ($record->acidentes_ativos ?? 0),
                             (int) ($record->obras_ativas ?? 0),
                             (bool) $record->alagamento_ativo,
+                            $record->origem_dado ?? 'desconhecido', $record->fonte_dado, $record->confianca_dado,
                         ];
                     })->values()->all();
 

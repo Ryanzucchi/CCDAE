@@ -8,22 +8,28 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\Traffic\TomTomTrafficProvider;
 
 class CollectTrafficData implements ShouldQueue
 {
     use Queueable;
 
-    public function handle(): void
+    public function handle(TomTomTrafficProvider $provider): void
     {
-        Log::info("Job de coleta de transito (simulado) iniciado");
+        Log::info('Job de coleta de trânsito iniciado', ['fonte' => $provider->configured() ? 'TomTom Traffic' : 'simulação identificada']);
 
         // Processamos em lotes
-        ViaTransito::chunk(50, function ($vias) {
-            $this->processBatch($vias);
+        $processed = 0; $maximum = config('data_sources.traffic.max_segments_per_run');
+        ViaTransito::chunk(50, function ($vias) use ($provider, &$processed, $maximum) {
+            $remaining = max(0, $maximum - $processed);
+            $batch = $vias->take($remaining);
+            $this->processBatch($batch, $provider);
+            $processed += count($batch);
+            return $processed < $maximum;
         });
     }
 
-    protected function processBatch($vias)
+    protected function processBatch($vias, TomTomTrafficProvider $provider)
     {
         try {
             $now = Carbon::now();
@@ -48,6 +54,16 @@ class CollectTrafficData implements ShouldQueue
                 // Volume
                 $baseVolume = $isRushHour ? rand(500, 2000) : rand(50, 400);
                 $veiculosTotal = $baseVolume * ($via->numero_faixas ?? 1);
+                [$sampleLongitude, $sampleLatitude] = $this->samplePoint($via->geojson);
+                $realFlow = $sampleLatitude !== null ? $provider->flow($sampleLatitude, $sampleLongitude) : null;
+                $origin = $realFlow ? 'misto' : 'simulado';
+                if ($realFlow) {
+                    $velMedia = (float) $realFlow['currentSpeed'];
+                    $freeFlow = max(1, (float) $realFlow['freeFlowSpeed']);
+                    $congestionFactor = (int) round(max(0, min(100, (1 - $velMedia / $freeFlow) * 100)));
+                    $velMin = $velMedia; $velMax = $freeFlow;
+                    $veiculosTotal = null;
+                }
 
                 // Características Veículos
                 $percentualPesados = rand(1, 20) / 100;
@@ -96,16 +112,18 @@ class CollectTrafficData implements ShouldQueue
                     'chuva_mm' => round($chuva, 1),
                     'visibilidade' => $visibilidade,
                     'temperatura' => round($temp, 1),
-                    'nivel_ruido' => round(60 + ($veiculosTotal / 100) + rand(-5, 5), 1),
-                    'emissao_co2' => round($veiculosTotal * 0.15, 2),
+                    'nivel_ruido' => $veiculosTotal !== null ? round(60 + ($veiculosTotal / 100) + rand(-5, 5), 1) : null,
+                    'emissao_co2' => $veiculosTotal !== null ? round($veiculosTotal * 0.15, 2) : null,
                     'indice_congestionamento' => $indiceCongestionamento,
                     'nivel_servico' => $nivelServico,
                     'dados_avancados' => json_encode($dadosAvancados)
+                    , 'origem_dado' => $origin, 'fonte_dado' => $realFlow ? 'TomTom Traffic Flow + estimativas CCDAE' : 'fallback_ccdae',
+                    'confianca_dado' => $realFlow['confidence'] ?? null,
                 ];
 
                 // Atualizar modelo ViaTransito
                 $impactoManutencao = 'baixo';
-                if ($veiculosTotal > 1000 || $percentualPesados > 0.15) {
+                if (($veiculosTotal ?? 0) > 1000 || $percentualPesados > 0.15) {
                     $impactoManutencao = 'alto';
                 } elseif ($veiculosTotal > 500 || $percentualPesados > 0.08) {
                     $impactoManutencao = 'medio';
@@ -114,7 +132,7 @@ class CollectTrafficData implements ShouldQueue
                 $viasUpdates[$via->id] = [
                     'nivel_congestionamento' => (int)$indiceCongestionamento,
                     'velocidade_media' => (int)round($velMedia),
-                    'volume_veiculos' => (int)$veiculosTotal,
+                    'volume_veiculos' => $veiculosTotal !== null ? (int) $veiculosTotal : null,
                     'impacto_manutencao' => $impactoManutencao,
                     'ultima_atualizacao' => $now,
                 ];
@@ -132,7 +150,7 @@ class CollectTrafficData implements ShouldQueue
 
             activity()
                 ->useLog('traffic_collection')
-                ->log("Coletados dados de trânsito simulados para " . count($vias) . " vias.");
+                ->log('Coletados dados de trânsito com proveniência para '.count($vias).' vias.');
 
             return true;
 
@@ -140,5 +158,15 @@ class CollectTrafficData implements ShouldQueue
             Log::error("Falha no lote de vias", ['erro' => $e->getMessage()]);
             return false;
         }
+    }
+
+    private function samplePoint(mixed $geometry): array
+    {
+        if (is_string($geometry)) $geometry = json_decode($geometry, true);
+        if (($geometry['type'] ?? null) === 'Feature') $geometry = $geometry['geometry'] ?? [];
+        $coordinates = $geometry['type'] === 'MultiLineString' ? ($geometry['coordinates'][0] ?? []) : ($geometry['coordinates'] ?? []);
+        if (! $coordinates) return [null, null];
+        $point = $coordinates[(int) floor(count($coordinates) / 2)] ?? null;
+        return is_array($point) && count($point) >= 2 ? [(float) $point[0], (float) $point[1]] : [null, null];
     }
 }

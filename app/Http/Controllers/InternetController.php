@@ -5,10 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Distrito;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class InternetController extends Controller
 {
     public function analytics(): JsonResponse
+    {
+        $collections = Cache::remember('analytics:internet:v2', config('data_sources.analytics_cache_seconds'), fn () => $this->buildAnalytics());
+        return response()->json($collections)->header('Cache-Control', 'private, max-age=300');
+    }
+
+    private function buildAnalytics(): array
     {
         $collections = ['densidade_rede' => $this->assetDensityFeatures(), 'demanda' => []];
         $districts = Distrito::query()->whereNotNull('geojson')->get(['id', 'nome', 'geojson', 'latitude', 'longitude', 'populacao']);
@@ -26,7 +33,7 @@ class InternetController extends Controller
             foreach ($features as &$feature) $feature['properties']['weight'] = $range > 0 ? ($feature['properties']['value'] - $min) / $range : .5;
             $collections[$type] = ['type' => 'FeatureCollection', 'properties' => ['minimum' => $min, 'maximum' => $max], 'features' => $features];
         }
-        return response()->json($collections);
+        return $collections;
     }
 
     private function assetDensityFeatures(): array
@@ -41,13 +48,30 @@ class InternetController extends Controller
             DB::table($table)->whereNotNull('latitude')->whereNotNull('longitude')->orderBy('id')->chunkById(3000,
                 fn ($rows) => $rows->each(fn ($row) => $add((float) $row->longitude, (float) $row->latitude, $kind)), 'id', 'id');
         }
-        DB::table('cabeamentos')->whereIn('tipo_cabo', ['fibra_optica', 'fibra_backbone', 'cobre_telefonia'])
-            ->whereNotNull('distrito_id')->selectRaw('distrito_id, count(*) total')->groupBy('distrito_id')->get()->each(function ($row) use (&$cells, $add): void {
-                $district = Distrito::find($row->distrito_id); if (!$district?->longitude || !$district?->latitude) return;
-                for ($i = 0; $i < min(12, (int) $row->total); $i++) $add((float) $district->longitude + (($i % 4) - 1.5) * .00055, (float) $district->latitude + ((intdiv($i, 4)) - 1) * .00055, 'cabos');
-            });
+        $cables = DB::table('cabeamentos')->whereIn('tipo_cabo', ['fibra_optica', 'fibra_backbone', 'cobre_telefonia']);
+        if (DB::getDriverName() === 'pgsql') $cables->whereNotNull('geom')->selectRaw("ST_AsGeoJSON(ST_SimplifyPreserveTopology(geom, 0.00003)) geometry");
+        else $cables->whereNotNull('geojson')->selectRaw('geojson as geometry');
+        $cables->orderBy('id')->chunk(1000, function ($rows) use ($add): void {
+            foreach ($rows as $row) {
+                $geometry = is_string($row->geometry) ? json_decode($row->geometry, true) : (array) $row->geometry;
+                foreach ($this->lineSamples($geometry, 90) as [$longitude, $latitude]) $add($longitude, $latitude, 'cabos');
+            }
+        });
         return array_values(array_map(fn ($cell) => ['type' => 'Feature', 'geometry' => ['type' => 'Point', 'coordinates' => [$cell['longitude'] / $cell['count'], $cell['latitude'] / $cell['count']]],
             'properties' => ['name' => 'Concentração da rede', 'value' => $cell['count'], 'antenas' => $cell['antenas'], 'equipamentos' => $cell['equipamentos'], 'cabos' => $cell['cabos'], 'cellSizeMeters' => 125]], $cells));
+    }
+
+    private function lineSamples(?array $geometry, float $spacingMeters): array
+    {
+        $lines = match ($geometry['type'] ?? null) { 'LineString' => [$geometry['coordinates']], 'MultiLineString' => $geometry['coordinates'], default => [] };
+        $samples = [];
+        foreach ($lines as $line) for ($i = 1; $i < count($line); $i++) {
+            [$x1, $y1] = $line[$i - 1]; [$x2, $y2] = $line[$i];
+            $distance = hypot(($x2 - $x1) * cos(deg2rad(($y1 + $y2) / 2)) * 111320, ($y2 - $y1) * 110540);
+            $steps = max(1, (int) ceil($distance / $spacingMeters));
+            for ($step = 0; $step < $steps; $step++) { $ratio = $step / $steps; $samples[] = [$x1 + ($x2 - $x1) * $ratio, $y1 + ($y2 - $y1) * $ratio]; }
+        }
+        return $samples;
     }
 
     private function territorialSamples(mixed $geometry, float $fallbackLng, float $fallbackLat): array

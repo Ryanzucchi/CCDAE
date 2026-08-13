@@ -18,6 +18,7 @@ class InternetAnalyticsTest extends TestCase
             'densidade_rede' => ['type', 'properties' => ['minimum', 'maximum'], 'features'],
             'demanda' => ['type', 'properties' => ['minimum', 'maximum'], 'features'],
         ]);
+        $response->assertHeader('Cache-Control');
     }
 
 }

@@ -5,10 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Distrito;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class EnergiaController extends Controller
 {
     public function analytics(): JsonResponse
+    {
+        $collections = Cache::remember('analytics:energia:v2', config('data_sources.analytics_cache_seconds'), fn () => $this->buildAnalytics());
+        return response()->json($collections)->header('Cache-Control', 'private, max-age=300');
+    }
+
+    private function buildAnalytics(): array
     {
         $districts = Distrito::query()->whereNotNull('geojson')->get(['id', 'nome', 'geojson', 'latitude', 'longitude', 'populacao', 'consumo_medio_kwh']);
         $posts = DB::table('postes')->selectRaw('distrito_id, count(*) total')->groupBy('distrito_id')->pluck('total', 'distrito_id');
@@ -35,7 +42,7 @@ class EnergiaController extends Controller
             foreach ($features as &$feature) $feature['properties']['weight'] = $range > 0 ? ($feature['properties']['value'] - $min) / $range : .5;
             $collections[$type] = ['type' => 'FeatureCollection', 'properties' => ['minimum' => $min, 'maximum' => $max], 'features' => $features];
         }
-        return response()->json($collections);
+        return $collections;
     }
 
     private function poleDensityFeatures(): array

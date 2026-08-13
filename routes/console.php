@@ -11,6 +11,7 @@ use App\Jobs\CollectTrafficData;
 use App\Jobs\CollectClimateData;
 
 Schedule::command('climate:sanitize')->dailyAt('02:00');
+Schedule::command('internet:sync-antennas')->weeklyOn(1, '03:20')->withoutOverlapping();
 
 $intervalo = max(1, min(59, (int) env('COLETA_DADOS_INTERVALO', 20)));
 

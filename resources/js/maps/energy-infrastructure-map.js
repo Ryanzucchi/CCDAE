@@ -1,4 +1,5 @@
-import { createMap, maplibregl, martinTilejsonUrl, registerLivewireMap } from './maplibre/base-map';
+import { createMap, registerLivewireMap } from './maplibre/base-map';
+import { addMartinSources, bindLayerPopup, filterLayersByDistrict, label, popupFromRows } from './maplibre/infrastructure-map';
 import { featureCollection, point, feature } from '@turf/helpers';
 
 let controller;
@@ -27,18 +28,7 @@ function features(payload) {
     return featureCollection(result);
 }
 
-function label(value, fallback = 'Não informado') {
-    if (value === null || value === undefined || value === '') return fallback;
-    return String(value).replaceAll('_', ' ');
-}
-
 function popupContent(properties) {
-    const root = document.createElement('div');
-    root.className = 'min-w-52 space-y-1 text-sm';
-    const title = document.createElement('strong');
-    title.className = 'block border-b border-gray-200 pb-1 text-base';
-    title.textContent = properties.nome || properties.codigo_patrimonio || ({ poste: 'Poste', cabeamento: 'Trecho de cabo', equipamento: 'Equipamento', central: 'Central' }[properties.kind] ?? 'Ativo elétrico');
-    root.appendChild(title);
     const rows = properties.kind === 'cabeamento' ? [
         ['Identificador', properties.codigo_patrimonio || `Cabo ${properties.id}`],
         ['Tipo', label(properties.tipo_cabo)], ['Capacidade', label(properties.capacidade)],
@@ -53,13 +43,7 @@ function popupContent(properties) {
         ['Altura', properties.altura_metros ? `${properties.altura_metros} m` : null], ['Modelo', properties.modelo],
         ['Estado', label(properties.estado_conservacao)],
     ];
-    for (const [name, value] of rows) {
-        if (value === null || value === undefined || value === '') continue;
-        const row = document.createElement('div'); const key = document.createElement('span'); const content = document.createElement('span');
-        row.className = 'flex justify-between gap-4'; key.className = 'text-gray-500'; key.textContent = name; content.className = 'text-right font-medium'; content.textContent = String(value);
-        row.append(key, content); root.appendChild(row);
-    }
-    return root;
+    return popupFromRows(properties.nome || properties.codigo_patrimonio || ({ poste: 'Poste', cabeamento: 'Trecho de cabo', equipamento: 'Equipamento', central: 'Central' }[properties.kind] ?? 'Ativo elétrico'), rows);
 }
 
 class EnergyInfrastructureMap {
@@ -73,7 +57,7 @@ class EnergyInfrastructureMap {
     setup() {
         const baseUrl = this.container.dataset.martinBaseUrl || '/tiles';
         const sources = { cables: 'energia_cabeamentos', poles: 'energia_postes', equipment: 'energia_equipamentos', stations: 'energia_centrais', poles3d: 'energia_postes_3d', equipment3d: 'energia_equipamentos_3d' };
-        for (const [key, source] of Object.entries(sources)) this.map.addSource(`energy-${key}`, { type: 'vector', url: martinTilejsonUrl(baseUrl, source) });
+        addMartinSources(this.map, baseUrl, 'energy', sources);
         this.map.addLayer({ id: 'energy-cables', type: 'line', source: 'energy-cables', 'source-layer': sources.cables, paint: {
             'line-color': ['match', ['get', 'tipo_cabo'], 'eletrico_alta_tensao', '#ef4444', '#f59e0b'], 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2, 17, 6], 'line-opacity': .9,
         }});
@@ -87,16 +71,10 @@ class EnergyInfrastructureMap {
         }, metadata: { energyKind: kind } });
         this.map.addLayer({ id:'energy-poles-3d', type:'fill-extrusion', source:'energy-poles3d', 'source-layer':sources.poles3d, minzoom:15, paint:{'fill-extrusion-color':'#64748b','fill-extrusion-height':['get','render_height'],'fill-extrusion-base':0,'fill-extrusion-opacity':.95}});
         this.map.addLayer({ id:'energy-equipment-3d', type:'fill-extrusion', source:'energy-equipment3d', 'source-layer':sources.equipment3d, minzoom:15, paint:{'fill-extrusion-color':['match',['downcase',['get','tipo']],'transformador','#f59e0b','#0ea5e9'],'fill-extrusion-height':['get','render_height'],'fill-extrusion-base':0,'fill-extrusion-opacity':.96}});
-        const showPopup = (event) => {
-            const p = event.features?.[0]?.properties ?? {};
+        bindLayerPopup(this.map, Object.fromEntries(['energy-cables', 'energy-poles', 'energy-equipment', 'energy-stations', 'energy-poles-3d', 'energy-equipment-3d'].map(layer => [layer, layer])), (p, kind, event) => {
             p.kind = event.features?.[0]?.layer?.metadata?.energyKind ?? (event.features?.[0]?.layer?.id === 'energy-cables' ? 'cabeamento' : p.kind);
-            new maplibregl.Popup({ maxWidth: '340px' }).setLngLat(event.lngLat).setDOMContent(popupContent(p)).addTo(this.map);
-        };
-        for (const layer of ['energy-cables', 'energy-poles', 'energy-equipment', 'energy-stations', 'energy-poles-3d', 'energy-equipment-3d']) {
-            this.map.on('click', layer, showPopup);
-            this.map.on('mouseenter', layer, () => { this.map.getCanvas().style.cursor = 'pointer'; });
-            this.map.on('mouseleave', layer, () => { this.map.getCanvas().style.cursor = ''; });
-        }
+            return popupContent(p);
+        });
         this.applyDistrictFilter(this.container.dataset.district || '');
     }
     async load(district = '') {
@@ -106,8 +84,7 @@ class EnergyInfrastructureMap {
         if (!district) this.map.easeTo({ center: [-57.6875, -16.07083], zoom: 12, duration: 500 });
     }
     applyDistrictFilter(district) {
-        const filter = district ? ['==', ['get', 'distrito_id'], Number(district)] : null;
-        for (const layer of ['energy-cables', 'energy-poles', 'energy-equipment', 'energy-stations', 'energy-poles-3d', 'energy-equipment-3d']) if (this.map.getLayer(layer)) this.map.setFilter(layer, filter);
+        filterLayersByDistrict(this.map, ['energy-cables', 'energy-poles', 'energy-equipment', 'energy-stations', 'energy-poles-3d', 'energy-equipment-3d'], district);
     }
     destroy() { window.removeEventListener('update-energy-infra-map', this.onDistrict); this.map.remove(); }
 }

@@ -28,7 +28,7 @@ class TrafficIntensityService
         foreach ($records as $viaId => $rows) {
             $via = $vias->get($viaId);
             $samples = $this->geometrySamples($via?->geojson, 180);
-            if (!$samples) {
+            if (! $samples) {
                 continue;
             }
             $properties = ['viaId' => (int) $viaId, 'name' => $via?->nome ?: 'Via'];
@@ -73,6 +73,7 @@ class TrafficIntensityService
                     $feature['properties']['weight'] = $range > 0.000001
                         ? max(0.0, min(1.0, ((float) $feature['properties']['value'] - $minimum) / $range))
                         : 0.5;
+
                     return $feature;
                 }, $features),
             ];
@@ -116,6 +117,7 @@ class TrafficIntensityService
         return array_values(array_map(function (array $cell) use ($average): array {
             $value = $average ? $cell['value'] / $cell['count'] : $cell['value'];
             $names = array_keys($cell['names']);
+
             return $this->pointFeature(
                 [$cell['longitude'] / $cell['count'], $cell['latitude'] / $cell['count']],
                 [
@@ -137,7 +139,7 @@ class TrafficIntensityService
         if (($geometry['type'] ?? null) === 'Feature') {
             $geometry = $geometry['geometry'] ?? null;
         }
-        if (!$geometry) {
+        if (! $geometry) {
             return [];
         }
 

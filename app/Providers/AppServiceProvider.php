@@ -2,14 +2,13 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Cache;
-use App\Services\Osm\Contracts\BuildingProvider;
-use App\Services\Osm\CommercialBuildingProvider;
 use App\Services\Internet\Contracts\AntennaProvider;
 use App\Services\Internet\OverpassAntennaProvider;
+use App\Services\Osm\CommercialBuildingProvider;
+use App\Services\Osm\Contracts\BuildingProvider;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {

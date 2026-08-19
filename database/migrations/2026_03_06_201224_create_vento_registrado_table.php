@@ -19,7 +19,7 @@ return new class extends Migration
             $table->float('velocidade');
             $table->float('direcao');
 
-            $table->primary(['distrito_id','timestamp']);
+            $table->primary(['distrito_id', 'timestamp']);
 
         });
     }

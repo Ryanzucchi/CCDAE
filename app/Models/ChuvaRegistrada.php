@@ -10,13 +10,17 @@ class ChuvaRegistrada extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'chuva_registrada';
 
     public $timestamps = false;
+
     public $incrementing = false;
+
     protected $primaryKey = null;
 
     public function getKey()
@@ -25,17 +29,19 @@ class ChuvaRegistrada extends Model
         if ($timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
+
         return "{$this->distrito_id}_{$timestamp}";
     }
+
     protected $fillable = [
         'distrito_id',
         'timestamp',
-        'precipitacao_mm'
+        'precipitacao_mm',
     ];
 
     protected $casts = [
-        'timestamp'=>'datetime',
-        'precipitacao_mm'=>'float'
+        'timestamp' => 'datetime',
+        'precipitacao_mm' => 'float',
     ];
 
     public function distrito()

@@ -20,6 +20,7 @@ class BoundingBox
         if ($maximumArea !== null && (($maxLng - $minLng) * ($maxLat - $minLat)) > $maximumArea) {
             throw new InvalidArgumentException('bbox excede a área máxima permitida.');
         }
+
         return $bbox;
     }
 }

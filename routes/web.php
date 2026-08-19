@@ -1,16 +1,25 @@
 <?php
 
+use App\Http\Controllers\Api\DistritosGeojsonController;
+use App\Http\Controllers\Api\InfraestruturaGeojsonController;
+use App\Http\Controllers\Api\InfrastructureBuildingsController;
+use App\Http\Controllers\Api\TrafficTimelineController;
+use App\Http\Controllers\EnergiaController;
+use App\Http\Controllers\InternetController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TransitoController;
+use App\Models\Distrito;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/api/distritos/geojson', \App\Http\Controllers\Api\DistritosGeojsonController::class)->name('api.distritos.geojson');
+Route::get('/api/distritos/geojson', DistritosGeojsonController::class)->name('api.distritos.geojson');
 
 Route::get('/export-distritos-temp', function () {
-    return response()->json(\App\Models\Distrito::all());
+    return response()->json(Distrito::all());
 });
 
 Route::get('/dashboard', function () {
@@ -18,7 +27,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/api/transito/intensidade', [\App\Http\Controllers\TransitoController::class, 'intensity'])->name('api.transito.intensidade');
+    Route::get('/api/transito/intensidade', [TransitoController::class, 'intensity'])->name('api.transito.intensidade');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -26,14 +35,14 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
-Route::get('/api/infraestrutura/geojson', \App\Http\Controllers\Api\InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
-Route::get('/api/infrastructure-map/buildings', \App\Http\Controllers\Api\InfrastructureBuildingsController::class)->name('api.infrastructure-map.buildings');
-Route::get('/api/transito/timeline', \App\Http\Controllers\Api\TrafficTimelineController::class)->name('api.transito.timeline');
-Route::middleware('auth')->get('/api/energia/analiticos', [\App\Http\Controllers\EnergiaController::class, 'analytics'])->name('api.energia.analiticos');
-Route::middleware('auth')->get('/api/internet/analiticos', [\App\Http\Controllers\InternetController::class, 'analytics'])->name('api.internet.analiticos');
+Route::get('/api/infraestrutura/geojson', InfraestruturaGeojsonController::class)->name('api.infraestrutura.geojson');
+Route::get('/api/infrastructure-map/buildings', InfrastructureBuildingsController::class)->name('api.infrastructure-map.buildings');
+Route::get('/api/transito/timeline', TrafficTimelineController::class)->name('api.transito.timeline');
+Route::middleware('auth')->get('/api/energia/analiticos', [EnergiaController::class, 'analytics'])->name('api.energia.analiticos');
+Route::middleware('auth')->get('/api/internet/analiticos', [InternetController::class, 'analytics'])->name('api.internet.analiticos');
 
 Route::get('/test-login', function () {
-    $u = \App\Models\User::where('email', 'ryan@admin.com')->first();
+    $u = User::where('email', 'ryan@admin.com')->first();
     $attempt = Auth::attempt(['email' => 'ryan@admin.com', 'password' => '12345678']);
 
     return response()->json([

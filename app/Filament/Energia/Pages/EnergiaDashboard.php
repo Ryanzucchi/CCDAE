@@ -1,13 +1,19 @@
 <?php
+
 namespace App\Filament\Energia\Pages;
+
 use App\Models\Distrito;
 use Filament\Pages\Dashboard;
 use Livewire\Attributes\Url;
+
 class EnergiaDashboard extends Dashboard
 {
     protected static ?string $title = 'Energia';
+
     protected static ?string $navigationLabel = 'Visão geral';
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-home';
+
     protected string $view = 'filament.energia.pages.energia-dashboard';
 
     #[Url]

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->float('sensacao_termica')->nullable();
 
             // chave primária composta
-            $table->primary(['distrito_id','timestamp']);
+            $table->primary(['distrito_id', 'timestamp']);
 
         });
     }

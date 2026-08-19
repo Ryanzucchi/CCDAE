@@ -58,6 +58,7 @@ class AuditNativeGeometriesCommand extends Command
             if (! Schema::hasColumn($table, 'geom')) {
                 $rows[] = [$table, '-', '-', '-', '-', 'coluna geom ausente'];
                 $hasDrift = true;
+
                 continue;
             }
 

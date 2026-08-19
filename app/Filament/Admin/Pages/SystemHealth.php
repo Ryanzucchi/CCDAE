@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Widgets\DataCollectionChart;
+use App\Filament\Admin\Widgets\SystemHealthStats;
 use App\Jobs\CollectClimateData;
 use App\Jobs\CollectTrafficData;
 use App\Services\Health\SystemHealthService;
@@ -31,8 +33,8 @@ class SystemHealth extends Page implements HasTable
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Admin\Widgets\SystemHealthStats::class,
-            \App\Filament\Admin\Widgets\DataCollectionChart::class,
+            SystemHealthStats::class,
+            DataCollectionChart::class,
         ];
     }
 

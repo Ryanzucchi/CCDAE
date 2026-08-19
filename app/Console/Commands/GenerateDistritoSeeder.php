@@ -2,19 +2,20 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Distrito;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
 class GenerateDistritoSeeder extends Command
 {
     protected $signature = 'make:distrito-seeder';
+
     protected $description = 'Generates DistritoSeeder based on current database records with spell checked names';
 
     public function handle()
     {
         $distritos = Distrito::all();
-        
+
         $phpCode = "<?php\n\nnamespace Database\\Seeders;\n\nuse Illuminate\\Database\\Seeder;\nuse App\\Models\\Distrito;\nuse Illuminate\\Support\\Facades\\DB;\n\nclass DistritoSeeder extends Seeder\n{\n    public function run(): void\n    {\n        DB::statement('TRUNCATE TABLE distritos CASCADE;');\n\n        \$distritos = [\n";
 
         foreach ($distritos as $d) {
@@ -24,7 +25,7 @@ class GenerateDistritoSeeder extends Command
             $cidade = $d->cidade;
             $geojson = json_encode($d->geojson);
             $geojsonEscaped = str_replace("'", "\\'", $geojson);
-            
+
             $phpCode .= "            [\n";
             $phpCode .= "                'nome' => '{$nome}',\n";
             $phpCode .= "                'latitude' => {$lat},\n";
@@ -53,7 +54,7 @@ class GenerateDistritoSeeder extends Command
                 $capitalized[] = strtolower($p);
             } else {
                 // Capitalize properly considering utf-8
-                $capitalized[] = mb_convert_case($p, MB_CASE_TITLE, "UTF-8");
+                $capitalized[] = mb_convert_case($p, MB_CASE_TITLE, 'UTF-8');
             }
         }
 

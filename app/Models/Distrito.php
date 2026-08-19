@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -10,9 +11,11 @@ class Distrito extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'distritos';
 
     protected $fillable = [
@@ -84,7 +87,7 @@ class Distrito extends Model
     public function regioes()
     {
         return $this->belongsToMany(RegiaoClimatica::class)
-                    ->withPivot('start_time', 'end_time');
+            ->withPivot('start_time', 'end_time');
     }
 
     /**
@@ -128,27 +131,29 @@ class Distrito extends Model
 
     public static function autoShrinkGeojson($geojsonArray, $ignoreId = null)
     {
-        if (empty($geojsonArray)) return null;
+        if (empty($geojsonArray)) {
+            return null;
+        }
         $geoJsonStr = is_string($geojsonArray) ? $geojsonArray : json_encode($geojsonArray);
 
-        $unionQuery = "SELECT ST_AsGeoJSON(ST_Union(ST_SetSRID(ST_GeomFromGeoJSON(geojson::text), 4326))) as union_geom FROM distritos WHERE geojson IS NOT NULL";
+        $unionQuery = 'SELECT ST_AsGeoJSON(ST_Union(ST_SetSRID(ST_GeomFromGeoJSON(geojson::text), 4326))) as union_geom FROM distritos WHERE geojson IS NOT NULL';
         $bindings = [];
         if ($ignoreId) {
-            $unionQuery .= " AND id != ?";
+            $unionQuery .= ' AND id != ?';
             $bindings[] = $ignoreId;
         }
-        
-        $union = \Illuminate\Support\Facades\DB::selectOne($unionQuery, $bindings);
-        
+
+        $union = DB::selectOne($unionQuery, $bindings);
+
         if ($union && $union->union_geom) {
-            $diffQuery = "SELECT ST_AsGeoJSON(
+            $diffQuery = 'SELECT ST_AsGeoJSON(
                 ST_Difference(
                     ST_SetSRID(ST_GeomFromGeoJSON(?), 4326),
                     ST_Buffer(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326), 0.00002)
                 )
-            ) as new_geom";
-            $result = \Illuminate\Support\Facades\DB::selectOne($diffQuery, [$geoJsonStr, $union->union_geom]);
-            
+            ) as new_geom';
+            $result = DB::selectOne($diffQuery, [$geoJsonStr, $union->union_geom]);
+
             if ($result && $result->new_geom) {
                 // If the geometry becomes totally empty due to Difference, it returns null
                 // We fallback to original if completely consumed or error, but wait, if it's completely consumed, new_geom might be valid EMPTY geometry.
@@ -158,6 +163,7 @@ class Distrito extends Model
                 }
             }
         }
+
         return is_string($geojsonArray) ? json_decode($geojsonArray, true) : $geojsonArray;
     }
 }

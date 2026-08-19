@@ -7,7 +7,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (DB::getDriverName() !== 'pgsql') return;
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
         DB::unprepared(<<<'SQL'
             CREATE OR REPLACE VIEW tiles.energia_cabeamentos AS
             SELECT id, distrito_id, nome, codigo_patrimonio, tipo_cabo, capacidade, revestimento,
@@ -34,6 +36,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (DB::getDriverName() === 'pgsql') DB::statement('DROP VIEW IF EXISTS tiles.energia_cabeamentos, tiles.energia_postes, tiles.energia_equipamentos, tiles.energia_centrais');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP VIEW IF EXISTS tiles.energia_cabeamentos, tiles.energia_postes, tiles.energia_equipamentos, tiles.energia_centrais');
+        }
     }
 };

@@ -2,24 +2,26 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Distrito;
+use Illuminate\Database\Seeder;
 
 class DistritosExcelSeeder extends Seeder
 {
     public function run(): void
     {
         $csvPath = base_path('distritos.csv');
-        if (!file_exists($csvPath)) {
+        if (! file_exists($csvPath)) {
             $this->command->error('Arquivo distritos.csv não encontrado no diretório raiz do projeto!');
+
             return;
         }
 
         $file = fopen($csvPath, 'r');
         $headers = fgetcsv($file);
-        
+
         if ($headers === false) {
             $this->command->error('O arquivo CSV está vazio ou é inválido.');
+
             return;
         }
 
@@ -32,9 +34,9 @@ class DistritosExcelSeeder extends Seeder
                 continue;
             }
             $data = array_combine($headers, $row);
-            
+
             $id = $data['id'] ?? null;
-            
+
             $geojson = $data['geojson'] ?? null;
             if ($geojson) {
                 // Tenta decodificar caso seja uma string JSON válida
@@ -59,7 +61,7 @@ class DistritosExcelSeeder extends Seeder
             }
         }
         fclose($file);
-        
+
         $this->command->info('Distritos importados com sucesso a partir do arquivo distritos.csv.');
     }
 }

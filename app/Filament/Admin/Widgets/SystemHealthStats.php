@@ -13,7 +13,7 @@ class SystemHealthStats extends BaseWidget
     protected function getStats(): array
     {
         $totalDistritos = DB::table('distritos')->count();
-        
+
         $totalRegistros = DB::table('temperatura_registrada')->count()
             + DB::table('vento_registrado')->count()
             + DB::table('chuva_registrada')->count()

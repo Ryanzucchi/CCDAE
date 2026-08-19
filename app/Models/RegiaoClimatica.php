@@ -10,14 +10,15 @@ class RegiaoClimatica extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'regioes_climaticas';
 
-
     protected $fillable = [
-        'nome'
+        'nome',
     ];
 
     public function distritos()

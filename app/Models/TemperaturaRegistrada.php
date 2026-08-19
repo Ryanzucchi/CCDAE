@@ -10,15 +10,18 @@ class TemperaturaRegistrada extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'temperatura_registrada';
 
     public $timestamps = false;
 
     // IMPORTANTE
     public $incrementing = false;
+
     protected $primaryKey = 'filament_id';
 
     public function getKey()
@@ -27,6 +30,7 @@ class TemperaturaRegistrada extends Model
         if ($timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
+
         return "{$this->distrito_id}_{$timestamp}";
     }
 
@@ -39,13 +43,13 @@ class TemperaturaRegistrada extends Model
         'distrito_id',
         'timestamp',
         'temperatura',
-        'sensacao_termica'
+        'sensacao_termica',
     ];
 
     protected $casts = [
         'timestamp' => 'datetime',
         'temperatura' => 'float',
-        'sensacao_termica' => 'float'
+        'sensacao_termica' => 'float',
     ];
 
     public function distrito()

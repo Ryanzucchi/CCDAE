@@ -7,7 +7,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (DB::getDriverName() !== 'pgsql') return;
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
         DB::unprepared(<<<'SQL'
             CREATE OR REPLACE VIEW tiles.energia_postes_3d AS
             SELECT id, distrito_id, codigo_patrimonio, COALESCE(altura_metros, 9)::float AS render_height,
@@ -29,6 +31,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (DB::getDriverName() === 'pgsql') DB::statement('DROP VIEW IF EXISTS tiles.energia_postes_3d, tiles.energia_equipamentos_3d, tiles.internet_antenas_3d');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP VIEW IF EXISTS tiles.energia_postes_3d, tiles.energia_equipamentos_3d, tiles.internet_antenas_3d');
+        }
     }
 };

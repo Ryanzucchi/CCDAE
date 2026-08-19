@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Antenas\Schemas;
 
+use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -52,9 +54,9 @@ class AntenaForm
                     DatePicker::make('ultima_manutencao')->label('Última Manutenção'),
                 ]),
                 Section::make('Localização Espacial')->schema([
-                    \Filament\Forms\Components\Hidden::make('latitude'),
-                    \Filament\Forms\Components\Hidden::make('longitude'),
-                    \Dotswan\MapPicker\Fields\Map::make('location')
+                    Hidden::make('latitude'),
+                    Hidden::make('longitude'),
+                    Map::make('location')
                         ->label('Clique no mapa para marcar a posição da Antena')
                         ->columnSpanFull()
                         ->dehydrated(false)
@@ -81,7 +83,7 @@ class AntenaForm
                 ]),
                 Section::make('Observações')->schema([
                     Textarea::make('observacoes')->columnSpanFull()->label('Observações Adicionais'),
-                ])
+                ]),
             ]);
     }
 }

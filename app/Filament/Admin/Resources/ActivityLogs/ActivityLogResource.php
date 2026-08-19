@@ -9,16 +9,14 @@ use App\Filament\Admin\Resources\ActivityLogs\Pages\ViewActivityLog;
 use App\Filament\Admin\Resources\ActivityLogs\Schemas\ActivityLogForm;
 use App\Filament\Admin\Resources\ActivityLogs\Schemas\ActivityLogInfolist;
 use App\Filament\Admin\Resources\ActivityLogs\Tables\ActivityLogsTable;
-use Spatie\Activitylog\Models\Activity;
-use App\Filament\Admin\Resources\ActivityLogs\Pages;
-use Filament\Resources\Resource;
 use BackedEnum;
-use UnitEnum;
+use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogResource extends Resource
 {

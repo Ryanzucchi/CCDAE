@@ -10,13 +10,17 @@ class PressaoAtmosferica extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'pressao_atmosferica';
 
     public $timestamps = false;
+
     public $incrementing = false;
+
     protected $primaryKey = null;
 
     public function getKey()
@@ -25,17 +29,19 @@ class PressaoAtmosferica extends Model
         if ($timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
+
         return "{$this->distrito_id}_{$timestamp}";
     }
+
     protected $fillable = [
         'distrito_id',
         'timestamp',
-        'pressao_hpa'
+        'pressao_hpa',
     ];
 
     protected $casts = [
-        'timestamp'=>'datetime',
-        'pressao_hpa'=>'float'
+        'timestamp' => 'datetime',
+        'pressao_hpa' => 'float',
     ];
 
     public function distrito()

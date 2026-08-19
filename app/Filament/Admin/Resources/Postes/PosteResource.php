@@ -19,6 +19,7 @@ class PosteResource extends Resource
     protected static ?string $model = Poste::class;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Infraestrutura Urbana';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
     public static function form(Schema $schema): Schema

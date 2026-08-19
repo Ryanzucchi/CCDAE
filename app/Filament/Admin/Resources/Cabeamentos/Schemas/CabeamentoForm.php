@@ -2,63 +2,74 @@
 
 namespace App\Filament\Admin\Resources\Cabeamentos\Schemas;
 
+use App\Models\CentralDistribuicao;
+use App\Models\Poste;
+use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\DB;
 
 class CabeamentoForm
 {
-    public static function getCoords($type, $id) {
-        if (!$id) return null;
+    public static function getCoords($type, $id)
+    {
+        if (! $id) {
+            return null;
+        }
         if ($type === 'poste') {
-            $model = \App\Models\Poste::find($id);
+            $model = Poste::find($id);
             if ($model && $model->latitude && $model->longitude) {
-                return [(float)$model->longitude, (float)$model->latitude];
+                return [(float) $model->longitude, (float) $model->latitude];
             }
-        } else if ($type === 'central') {
-            $model = \App\Models\CentralDistribuicao::find($id);
+        } elseif ($type === 'central') {
+            $model = CentralDistribuicao::find($id);
             if ($model && $model->latitude && $model->longitude) {
-                return [(float)$model->longitude, (float)$model->latitude];
+                return [(float) $model->longitude, (float) $model->latitude];
             }
         }
+
         return null;
     }
 
-    public static function updateRoute(callable $get, callable $set) {
+    public static function updateRoute(callable $get, callable $set)
+    {
         $origemPoste = $get('poste_origem_id');
         $destinoPoste = $get('poste_destino_id');
         $origemCentral = $get('central_origem_id');
         $destinoCentral = $get('central_destino_id');
-        
+
         $coordOrigem = self::getCoords('poste', $origemPoste) ?? self::getCoords('central', $origemCentral);
         $coordDestino = self::getCoords('poste', $destinoPoste) ?? self::getCoords('central', $destinoCentral);
-        
+
         if ($coordOrigem && $coordDestino) {
             $geojson = [
                 'type' => 'LineString',
-                'coordinates' => [ $coordOrigem, $coordDestino ]
+                'coordinates' => [$coordOrigem, $coordDestino],
             ];
-            
+
             $set('geojson', $geojson);
             $set('location', [
                 'lat' => $coordOrigem[1],
                 'lng' => $coordOrigem[0],
-                'geojson' => $geojson
+                'geojson' => $geojson,
             ]);
-            
+
             try {
-                $dist = \Illuminate\Support\Facades\DB::selectOne(
-                    "SELECT ST_Length(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)::geography) as dist", 
+                $dist = DB::selectOne(
+                    'SELECT ST_Length(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)::geography) as dist',
                     [json_encode($geojson)]
                 );
                 if ($dist && $dist->dist) {
                     $set('extensao_metros', round($dist->dist, 2));
                 }
-            } catch (\Exception $e) {}
+            } catch (\Exception $e) {
+            }
         }
     }
 
@@ -130,14 +141,14 @@ class CabeamentoForm
                         ->columnSpanFull(),
                 ]),
                 Section::make('Traçado Espacial (Edge)')->schema([
-                    \Filament\Forms\Components\Hidden::make('geojson')->dehydrated(),
-                    \Dotswan\MapPicker\Fields\Map::make('location')
+                    Hidden::make('geojson')->dehydrated(),
+                    Map::make('location')
                         ->label('O traçado é construído automaticamente quando os nós de origem e destino são conectados')
                         ->columnSpanFull()
                         ->dehydrated(false)
                         ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
                         ->afterStateUpdated(function ($state, callable $set) {
-                            if (isset($state['geojson']) && !empty($state['geojson'])) {
+                            if (isset($state['geojson']) && ! empty($state['geojson'])) {
                                 $geo = $state['geojson'];
                                 if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                                     $geo = $geo['features'][0]['geometry'] ?? $geo;
@@ -152,7 +163,7 @@ class CabeamentoForm
                                 $set('location', [
                                     'lat' => -23.550520, // Default fallback
                                     'lng' => -46.633308,
-                                    'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson
+                                    'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson,
                                 ]);
                             }
                         })
@@ -171,7 +182,7 @@ class CabeamentoForm
                 ]),
                 Section::make('Observações')->schema([
                     Textarea::make('observacoes')->columnSpanFull()->label('Observações Adicionais'),
-                ])
+                ]),
             ]);
     }
 }

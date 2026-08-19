@@ -20,5 +20,4 @@ class InternetAnalyticsTest extends TestCase
         ]);
         $response->assertHeader('Cache-Control');
     }
-
 }

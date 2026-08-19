@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Distrito;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class DistritoSeeder extends Seeder

@@ -18,8 +18,13 @@ class OverpassBuildingProvider implements BuildingProvider
             ->retry(3, 1500, throw: false)
             ->timeout((int) config('osm.buildings.timeout', 90))
             ->post(config('osm.buildings.overpass_url'), ['data' => $query]);
-        if ($response->status() === 429) throw new RuntimeException('A Overpass API limitou temporariamente as consultas (HTTP 429).');
-        if (! $response->successful()) throw new RuntimeException('A Overpass API respondeu HTTP '.$response->status().'.');
+        if ($response->status() === 429) {
+            throw new RuntimeException('A Overpass API limitou temporariamente as consultas (HTTP 429).');
+        }
+        if (! $response->successful()) {
+            throw new RuntimeException('A Overpass API respondeu HTTP '.$response->status().'.');
+        }
+
         return array_values(array_filter($response->json('elements', []), fn ($element) => isset($element['id'], $element['type'], $element['tags']['building'])));
     }
 }

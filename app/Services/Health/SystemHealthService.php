@@ -57,7 +57,7 @@ class SystemHealthService
 
             if (DB::getDriverName() === 'pgsql') {
                 $sizeQuery = DB::select('SELECT pg_size_pretty(pg_database_size(current_database())) as size');
-                if (!empty($sizeQuery)) {
+                if (! empty($sizeQuery)) {
                     $dbSize = $sizeQuery[0]->size;
                 }
             }
@@ -121,9 +121,12 @@ class SystemHealthService
             $last = strtolower($limitStr[strlen($limitStr) - 1]);
             $limitVal = (int) $limitStr;
             switch ($last) {
-                case 'g': $limitVal *= 1024 * 1024 * 1024; break;
-                case 'm': $limitVal *= 1024 * 1024; break;
-                case 'k': $limitVal *= 1024; break;
+                case 'g': $limitVal *= 1024 * 1024 * 1024;
+                    break;
+                case 'm': $limitVal *= 1024 * 1024;
+                    break;
+                case 'k': $limitVal *= 1024;
+                    break;
             }
             $limitBytes = $limitVal;
         }

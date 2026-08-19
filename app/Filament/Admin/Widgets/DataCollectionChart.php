@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\DB;
 class DataCollectionChart extends ChartWidget
 {
     protected ?string $heading = 'Volume de Coleta (Últimos 7 dias)';
+
     protected static ?int $sort = 2;
-    protected int | string | array $columnSpan = 'full';
+
+    protected int|string|array $columnSpan = 'full';
+
     protected ?string $maxHeight = '200px';
 
     protected function getData(): array

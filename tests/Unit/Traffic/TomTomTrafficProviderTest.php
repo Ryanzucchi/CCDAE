@@ -21,7 +21,8 @@ class TomTomTrafficProviderTest extends TestCase
 
     public function test_does_not_call_provider_without_key(): void
     {
-        config(['data_sources.traffic.tomtom_key' => null]); Http::fake();
+        config(['data_sources.traffic.tomtom_key' => null]);
+        Http::fake();
         $this->assertNull(app(TomTomTrafficProvider::class)->flow(-16.07, -57.68));
         Http::assertNothingSent();
     }

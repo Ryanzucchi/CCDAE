@@ -22,13 +22,13 @@ class ClimateApiService
                     'hourly' => 'temperature_2m,relative_humidity_2m,pressure_msl',
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
 
                 Log::error('Erro API clima', [
                     'lat' => $lat,
                     'lon' => $lon,
                     'status' => $response->status(),
-                    'body' => $response->body()
+                    'body' => $response->body(),
                 ]);
 
                 throw new \Exception('Erro ao consultar API climática');
@@ -41,7 +41,7 @@ class ClimateApiService
             Log::error('Falha conexão API clima', [
                 'lat' => $lat,
                 'lon' => $lon,
-                'erro' => $e->getMessage()
+                'erro' => $e->getMessage(),
             ]);
 
             throw $e;

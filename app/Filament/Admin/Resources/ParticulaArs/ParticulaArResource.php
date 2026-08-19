@@ -4,17 +4,13 @@ namespace App\Filament\Admin\Resources\ParticulaArs;
 
 use App\Filament\Admin\Resources\ParticulaArs\Pages\ManageParticulaArs;
 use App\Models\ParticulaAr;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Resources\Resource;
-use Filament\Support\Icons\Heroicon;
 use BackedEnum;
-use UnitEnum;
+use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Table;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use UnitEnum;
 
 class ParticulaArResource extends Resource
 {

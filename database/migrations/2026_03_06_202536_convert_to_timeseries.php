@@ -26,5 +26,4 @@ return new class extends Migration
         DB::statement("SELECT create_hypertable('particulas_ar','timestamp', if_not_exists => TRUE)");
 
     }
-
 };

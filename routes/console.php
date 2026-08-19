@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
-use Illuminate\Support\Facades\Schedule;
-use App\Jobs\CollectTrafficData;
 use App\Jobs\CollectClimateData;
+use App\Jobs\CollectTrafficData;
+use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('climate:sanitize')->dailyAt('02:00');
 Schedule::command('internet:sync-antennas')->weeklyOn(1, '03:20')->withoutOverlapping();

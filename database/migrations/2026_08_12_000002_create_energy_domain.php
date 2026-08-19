@@ -49,6 +49,8 @@ return new class extends Migration
         }
         Schema::dropIfExists('incidentes_energia');
         Schema::table('distritos', fn (Blueprint $table) => $table->dropColumn(['populacao', 'consumo_medio_kwh']));
-        if (DB::getDriverName() === 'pgsql') DB::statement('DROP SCHEMA IF EXISTS energy');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP SCHEMA IF EXISTS energy');
+        }
     }
 };

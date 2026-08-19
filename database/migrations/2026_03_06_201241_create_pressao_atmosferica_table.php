@@ -19,7 +19,7 @@ return new class extends Migration
 
             $table->float('pressao_hpa');
 
-            $table->primary(['distrito_id','timestamp']);
+            $table->primary(['distrito_id', 'timestamp']);
 
         });
     }

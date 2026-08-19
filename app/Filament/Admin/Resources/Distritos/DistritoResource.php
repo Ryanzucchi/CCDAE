@@ -5,16 +5,24 @@ namespace App\Filament\Admin\Resources\Distritos;
 use App\Filament\Admin\Resources\Distritos\Pages\ManageDistritos;
 use App\Models\Distrito;
 use BackedEnum;
+use Dotswan\MapPicker\Fields\Map;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Livewire\Component;
 
 class DistritoResource extends Resource
 {
@@ -26,7 +34,7 @@ class DistritoResource extends Resource
     {
         return $schema
             ->components([
-                \Filament\Schemas\Components\Grid::make(2)->components([
+                Grid::make(2)->components([
                     TextInput::make('nome')
                         ->required()
                         ->label('Nome do Distrito'),
@@ -34,28 +42,29 @@ class DistritoResource extends Resource
                         ->required()
                         ->label('Cidade')
                         ->suffixAction(
-                            \Filament\Actions\Action::make('searchMap')
+                            Action::make('searchMap')
                                 ->icon('heroicon-m-magnifying-glass')
                                 ->label('Buscar no Mapa')
-                                ->action(function ($state, callable $set, callable $get, \Livewire\Component $livewire) {
+                                ->action(function ($state, callable $set, callable $get, Component $livewire) {
                                     if ($state) {
                                         try {
-                                            $response = \Illuminate\Support\Facades\Http::withHeaders([
-                                                'User-Agent' => 'CCDAE-System'
+                                            $response = Http::withHeaders([
+                                                'User-Agent' => 'CCDAE-System',
                                             ])->get('https://nominatim.openstreetmap.org/search', [
-                                                'q' => $state . ', MT',
+                                                'q' => $state.', MT',
                                                 'format' => 'json',
-                                                'limit' => 1
+                                                'limit' => 1,
                                             ]);
-                                            if ($response->successful() && !empty($response->json())) {
+                                            if ($response->successful() && ! empty($response->json())) {
                                                 $data = $response->json()[0];
                                                 $loc = $get('location') ?? [];
-                                                $loc['lat'] = (float)$data['lat'];
-                                                $loc['lng'] = (float)$data['lon'];
+                                                $loc['lat'] = (float) $data['lat'];
+                                                $loc['lng'] = (float) $data['lon'];
                                                 $set('location', $loc);
                                                 $livewire->dispatch('refreshMap');
                                             }
-                                        } catch (\Exception $e) {}
+                                        } catch (\Exception $e) {
+                                        }
                                     }
                                 })
                         ),
@@ -63,33 +72,33 @@ class DistritoResource extends Resource
                     TextInput::make('populacao_fonte')->label('Fonte da população')->readOnly()->dehydrated(false),
                     TextInput::make('consumo_medio_kwh')->label('Consumo médio (kWh/dia)')->numeric()->minValue(0)
                         ->helperText('Se vazio, o mapa exibirá uma estimativa baseada na população.'),
-                    \Filament\Forms\Components\TextInput::make('latitude')
+                    TextInput::make('latitude')
                         ->numeric()
                         ->readOnly()
                         ->dehydrated()
                         ->helperText('Preenchido automaticamente ao clicar no mapa.'),
-                    \Filament\Forms\Components\TextInput::make('longitude')
+                    TextInput::make('longitude')
                         ->numeric()
                         ->readOnly()
                         ->dehydrated()
                         ->helperText('Preenchido automaticamente ao clicar no mapa.'),
                 ]),
-                \Filament\Forms\Components\Hidden::make('geojson')
+                Hidden::make('geojson')
                     ->required()
                     ->rule(function () {
                         return function (string $attribute, $value, \Closure $fail) {
-                            if (!$value) {
+                            if (! $value) {
                                 $fail('Você precisa desenhar e concluir (fechar) o polígono no mapa.');
                             }
                         };
                     })
                     ->dehydrated(),
-                \Dotswan\MapPicker\Fields\Map::make('location')
+                Map::make('location')
                     ->label('Fronteiras e Localização no Mapa')
                     ->columnSpanFull()
                     ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                        if (isset($state['geojson']) && !empty($state['geojson'])) {
+                        if (isset($state['geojson']) && ! empty($state['geojson'])) {
                             $geo = $state['geojson'];
                             if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                                 $geo = $geo['features'][0]['geometry'] ?? $geo;
@@ -98,19 +107,20 @@ class DistritoResource extends Resource
 
                             // O centro DEVE SEMPRE ser o do polígono.
                             try {
-                                $centroid = \Illuminate\Support\Facades\DB::selectOne(
-                                    "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                                $centroid = DB::selectOne(
+                                    'SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat',
                                     [json_encode($geo), json_encode($geo)]
                                 );
                                 if ($centroid && $centroid->lat && $centroid->lng) {
                                     $set('latitude', round($centroid->lat, 6));
                                     $set('longitude', round($centroid->lng, 6));
                                 }
-                            } catch (\Exception $e) {}
+                            } catch (\Exception $e) {
+                            }
                         } else {
                             $set('geojson', null);
                             // Somente apaga latitude e longitude se o usuário de fato apagou o polígono que estava presente
-                            if (!$get('geojson')) {
+                            if (! $get('geojson')) {
                                 $set('latitude', null);
                                 $set('longitude', null);
                             }
@@ -119,9 +129,9 @@ class DistritoResource extends Resource
                     ->afterStateHydrated(function ($state, $record, callable $set): void {
                         if ($record) {
                             $set('location', [
-                                'lat' => $record->latitude, 
+                                'lat' => $record->latitude,
                                 'lng' => $record->longitude,
-                                'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson
+                                'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson,
                             ]);
                         }
                     })
@@ -140,7 +150,7 @@ class DistritoResource extends Resource
                     ->drawText(false)
                     ->editPolygon(true)
                     ->deleteLayer(true),
-                \Filament\Forms\Components\ViewField::make('map_injector')
+                ViewField::make('map_injector')
                     ->view('filament.admin.views.map-districts-injector')
                     ->hiddenLabel()
                     ->columnSpanFull(),
@@ -186,6 +196,7 @@ class DistritoResource extends Resource
                         $data['longitude'] = $location['lng'] ?? $data['longitude'] ?? null;
                         unset($data['location']);
                         unset($data['map_injector']);
+
                         return $data;
                     }),
                 DeleteAction::make(),

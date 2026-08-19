@@ -18,8 +18,8 @@ return new class extends Migration
             $table->string('nome');
             $table->string('fonte_api');
 
-            $table->decimal('latitude',10,7);
-            $table->decimal('longitude',10,7);
+            $table->decimal('latitude', 10, 7);
+            $table->decimal('longitude', 10, 7);
 
             $table->timestamps();
         });

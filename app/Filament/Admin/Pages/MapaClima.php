@@ -3,16 +3,20 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Models\Distrito;
-use Filament\Pages\Page;
 use Carbon\Carbon;
+use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 
 class MapaClima extends Page
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-sun';
+
     protected static string|\UnitEnum|null $navigationGroup = null;
+
     protected static ?string $navigationLabel = 'Mapa do Clima';
+
     protected static ?string $title = 'Central de Monitoramento Climático';
+
     protected static ?string $slug = 'mapa-clima';
 
     protected string $view = 'filament.admin.pages.mapa-clima';

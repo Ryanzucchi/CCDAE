@@ -4,19 +4,21 @@ namespace App\Filament\Admin\Resources\TemperaturaRegistradas;
 
 use App\Filament\Admin\Resources\TemperaturaRegistradas\Pages\ManageTemperaturaRegistradas;
 use App\Models\TemperaturaRegistrada;
-use Filament\Resources\Resource;
 use BackedEnum;
-use UnitEnum;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Schemas\Schema;
+use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use UnitEnum;
 
 class TemperaturaRegistradaResource extends Resource
 {
     protected static ?string $model = TemperaturaRegistrada::class;
+
     protected static BackedEnum|string|null $navigationIcon = Heroicon::OutlinedSun;
+
     protected static UnitEnum|string|null $navigationGroup = 'Dados Climáticos';
+
     protected static ?string $modelLabel = 'Temperatura';
 
     public static function table(Table $table): Table

@@ -31,7 +31,9 @@ return new class extends Migration
             $table->index(['latitude', 'longitude']);
         });
 
-        if (DB::getDriverName() !== 'pgsql') return;
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
         DB::statement('CREATE SCHEMA IF NOT EXISTS internet');
         DB::statement('ALTER TABLE public.incidentes_internet SET SCHEMA internet');
         DB::unprepared(<<<'SQL'
@@ -61,6 +63,8 @@ return new class extends Migration
             DB::statement('ALTER TABLE IF EXISTS internet.incidentes_internet SET SCHEMA public');
         }
         Schema::dropIfExists('incidentes_internet');
-        if (DB::getDriverName() === 'pgsql') DB::statement('DROP SCHEMA IF EXISTS internet');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP SCHEMA IF EXISTS internet');
+        }
     }
 };

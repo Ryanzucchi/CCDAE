@@ -4,8 +4,8 @@ namespace App\Services\Osm;
 
 use App\Models\OsmBuilding;
 use App\Services\Osm\Contracts\BuildingProvider;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class BuildingImportService
 {
@@ -23,9 +23,10 @@ class BuildingImportService
         foreach ($elements as $element) {
             try {
                 $geometry = $this->geometries->fromElement($element);
-                if (!$geometry) {
+                if (! $geometry) {
                     $stats['errors']++;
                     $stats['error_messages'][] = ($element['type'] ?? 'objeto').' '.($element['id'] ?? '?').': geometria inválida ou incompleta.';
+
                     continue;
                 }
                 $tags = $element['tags'] ?? [];
@@ -38,7 +39,7 @@ class BuildingImportService
                 ];
                 $created = DB::transaction(function () use ($element, $geometry, $attributes): bool {
                     $record = OsmBuilding::query()->firstOrNew(['osm_type' => $element['type'], 'osm_id' => $element['id']]);
-                    $created = !$record->exists;
+                    $created = ! $record->exists;
                     $record->fill($attributes);
                     $record->save();
                     $geojson = json_encode($geometry, JSON_THROW_ON_ERROR);
@@ -47,6 +48,7 @@ class BuildingImportService
                     } else {
                         DB::table('osm_buildings')->where('id', $record->id)->update(['geometry' => $geojson]);
                     }
+
                     return $created;
                 });
                 $stats[$created ? 'created' : 'updated']++;
@@ -57,7 +59,10 @@ class BuildingImportService
                 }
             }
         }
-        if ($stats['created'] || $stats['updated']) Cache::forever('osm-buildings-cache-version', (string) microtime(true));
+        if ($stats['created'] || $stats['updated']) {
+            Cache::forever('osm-buildings-cache-version', (string) microtime(true));
+        }
+
         return $stats;
     }
 }

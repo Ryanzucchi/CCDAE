@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Climate;
 
-use App\Models\Distrito;
 use App\Services\Climate\ClimateSimulationService;
 use Tests\TestCase;
 
@@ -10,7 +9,7 @@ class ClimateSimulationServiceTest extends TestCase
 {
     public function test_generates_weather_and_air_quality_simulation_arrays(): void
     {
-        $service = new ClimateSimulationService();
+        $service = new ClimateSimulationService;
         $distritos = collect([
             (object) ['id' => 1, 'latitude' => -16.07, 'longitude' => -57.68],
         ]);

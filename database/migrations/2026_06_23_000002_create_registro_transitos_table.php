@@ -18,7 +18,7 @@ return new class extends Migration
             $table->float('velocidade_min')->nullable();
             $table->float('velocidade_max')->nullable();
             $table->float('tempo_medio_travessia')->nullable();
-            
+
             // Veículos
             $table->float('altura_media_veiculos')->nullable();
             $table->float('altura_maxima_veiculos')->nullable();

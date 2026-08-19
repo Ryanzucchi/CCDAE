@@ -2,14 +2,15 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use App\Models\Distrito;
 use App\Models\ViaTransito;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 
 class SyncTransitoRealCommand extends Command
 {
     protected $signature = 'transito:sync-real';
+
     protected $description = 'Busca vias reais de Cáceres via Overpass API (OpenStreetMap) para desenhar o trânsito com precisão.';
 
     public function handle()
@@ -37,20 +38,20 @@ class SyncTransitoRealCommand extends Command
                 }
             }
 
-            if (!is_null($lat) && !is_null($lon)) {
-                $d->latitude = (float)$lat;
-                $d->longitude = (float)$lon;
-                $lats[] = (float)$lat;
-                $lons[] = (float)$lon;
+            if (! is_null($lat) && ! is_null($lon)) {
+                $d->latitude = (float) $lat;
+                $d->longitude = (float) $lon;
+                $lats[] = (float) $lat;
+                $lons[] = (float) $lon;
             }
         }
 
         // Bounding box aproximado de Cáceres MT focado nos distritos (aprox)
         // bbox: min_lon, min_lat, max_lon, max_lat
-        $minLat = (!empty($lats) ? min($lats) : -16.07) - 0.05;
-        $maxLat = (!empty($lats) ? max($lats) : -16.07) + 0.05;
-        $minLon = (!empty($lons) ? min($lons) : -57.68) - 0.05;
-        $maxLon = (!empty($lons) ? max($lons) : -57.68) + 0.05;
+        $minLat = (! empty($lats) ? min($lats) : -16.07) - 0.05;
+        $maxLat = (! empty($lats) ? max($lats) : -16.07) + 0.05;
+        $minLon = (! empty($lons) ? min($lons) : -57.68) - 0.05;
+        $maxLon = (! empty($lons) ? max($lons) : -57.68) + 0.05;
 
         $bbox = "{$minLat},{$minLon},{$maxLat},{$maxLon}";
 
@@ -65,47 +66,49 @@ class SyncTransitoRealCommand extends Command
             $endpoints = [
                 'https://overpass-api.de/api/interpreter',
                 'https://overpass.kumi.systems/api/interpreter',
-                'https://z.overpass-api.de/api/interpreter'
+                'https://z.overpass-api.de/api/interpreter',
             ];
 
-        $response = null;
-        $success = false;
+            $response = null;
+            $success = false;
 
-        foreach ($endpoints as $url) {
-            $this->info("Tentando Overpass API: {$url}...");
-            try {
-                $response = Http::timeout(40)->withHeaders([
-                    'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
-                    'Accept' => '*/*'
-                ])->asForm()->post($url, [
-                    'data' => $query
-                ]);
+            foreach ($endpoints as $url) {
+                $this->info("Tentando Overpass API: {$url}...");
+                try {
+                    $response = Http::timeout(40)->withHeaders([
+                        'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
+                        'Accept' => '*/*',
+                    ])->asForm()->post($url, [
+                        'data' => $query,
+                    ]);
 
-                if ($response->successful()) {
-                    $success = true;
-                    break;
-                } else {
-                    $this->warn("Erro no endpoint {$url}: " . $response->status());
+                    if ($response->successful()) {
+                        $success = true;
+                        break;
+                    } else {
+                        $this->warn("Erro no endpoint {$url}: ".$response->status());
+                    }
+                } catch (\Throwable $t) {
+                    $this->warn("Falha de conexão com {$url}: ".$t->getMessage());
                 }
-            } catch (\Throwable $t) {
-                $this->warn("Falha de conexão com {$url}: " . $t->getMessage());
             }
-        }
 
-        if (!$success || is_null($response)) {
-            $this->error('Todos os endpoints do Overpass API falharam.');
-            return;
-        }
+            if (! $success || is_null($response)) {
+                $this->error('Todos os endpoints do Overpass API falharam.');
 
-        $data = $response->json();
+                return;
+            }
 
-        if (!isset($data['elements'])) {
-            $this->error('Nenhum dado retornado da API.');
-            return;
-        }
+            $data = $response->json();
+
+            if (! isset($data['elements'])) {
+                $this->error('Nenhum dado retornado da API.');
+
+                return;
+            }
 
             $elements = $data['elements'];
-            $this->info('Vias encontradas: ' . count($elements));
+            $this->info('Vias encontradas: '.count($elements));
 
             // Limpar vias antigas geradas randomicamente
             ViaTransito::truncate();
@@ -116,7 +119,9 @@ class SyncTransitoRealCommand extends Command
             $bar->start();
 
             foreach ($elements as $el) {
-                if ($el['type'] !== 'way' || !isset($el['geometry'])) continue;
+                if ($el['type'] !== 'way' || ! isset($el['geometry'])) {
+                    continue;
+                }
 
                 $coords = [];
                 $midPoint = null;
@@ -131,11 +136,13 @@ class SyncTransitoRealCommand extends Command
                     $idx++;
                 }
 
-                if (count($coords) < 2 || !$midPoint) continue;
+                if (count($coords) < 2 || ! $midPoint) {
+                    continue;
+                }
 
                 $geojson = [
                     'type' => 'LineString',
-                    'coordinates' => $coords
+                    'coordinates' => $coords,
                 ];
 
                 $nome = $el['tags']['name'] ?? 'Via Não Nomeada';
@@ -155,7 +162,7 @@ class SyncTransitoRealCommand extends Command
 
                 // Gerar nivel de congestionamento e velocidade (simulação baseada no tipo de via)
                 $tipo = $el['tags']['highway'] ?? 'residential';
-                
+
                 $nivel = 'livre';
                 if (in_array($tipo, ['primary', 'trunk'])) {
                     $nivel = collect(['livre', 'moderado', 'moderado', 'intenso', 'parado'])->random();
@@ -166,14 +173,26 @@ class SyncTransitoRealCommand extends Command
                 }
 
                 $velocidade = 0;
-                if ($nivel == 'livre') $velocidade = rand(40, 60);
-                if ($nivel == 'moderado') $velocidade = rand(20, 40);
-                if ($nivel == 'intenso') $velocidade = rand(10, 20);
-                if ($nivel == 'parado') $velocidade = rand(0, 5);
+                if ($nivel == 'livre') {
+                    $velocidade = rand(40, 60);
+                }
+                if ($nivel == 'moderado') {
+                    $velocidade = rand(20, 40);
+                }
+                if ($nivel == 'intenso') {
+                    $velocidade = rand(10, 20);
+                }
+                if ($nivel == 'parado') {
+                    $velocidade = rand(0, 5);
+                }
 
                 $impacto = 'baixo';
-                if ($nivel == 'intenso') $impacto = 'medio';
-                if ($nivel == 'parado') $impacto = 'alto';
+                if ($nivel == 'intenso') {
+                    $impacto = 'medio';
+                }
+                if ($nivel == 'parado') {
+                    $impacto = 'alto';
+                }
 
                 ViaTransito::create([
                     'distrito_id' => $closestDistritoId,
@@ -195,7 +214,7 @@ class SyncTransitoRealCommand extends Command
             $this->info("Importação concluída! $inseridos vias reais inseridas no mapa.");
 
         } catch (\Exception $e) {
-            $this->error('Exceção: ' . $e->getMessage());
+            $this->error('Exceção: '.$e->getMessage());
         }
     }
 }

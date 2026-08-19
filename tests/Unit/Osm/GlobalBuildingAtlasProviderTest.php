@@ -21,7 +21,9 @@ class GlobalBuildingAtlasProviderTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->directory.'/*') ?: [] as $file) unlink($file);
+        foreach (glob($this->directory.'/*') ?: [] as $file) {
+            unlink($file);
+        }
         @rmdir($this->directory);
         parent::tearDown();
     }

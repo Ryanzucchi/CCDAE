@@ -14,12 +14,18 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (DB::getDriverName() !== 'pgsql') return;
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
         DB::transaction(function (): void {
-            foreach (array_keys(self::TABLES) as $schema) DB::statement("CREATE SCHEMA IF NOT EXISTS {$schema}");
+            foreach (array_keys(self::TABLES) as $schema) {
+                DB::statement("CREATE SCHEMA IF NOT EXISTS {$schema}");
+            }
             DB::statement('DROP SCHEMA IF EXISTS tiles CASCADE');
             foreach (self::TABLES as $schema => $tables) {
-                foreach ($tables as $table) DB::statement("ALTER TABLE public.{$table} SET SCHEMA {$schema}");
+                foreach ($tables as $table) {
+                    DB::statement("ALTER TABLE public.{$table} SET SCHEMA {$schema}");
+                }
             }
             $this->createTileViews();
         });
@@ -27,13 +33,19 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (DB::getDriverName() !== 'pgsql') return;
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
         DB::transaction(function (): void {
             DB::statement('DROP SCHEMA IF EXISTS tiles CASCADE');
             foreach (self::TABLES as $schema => $tables) {
-                foreach (array_reverse($tables) as $table) DB::statement("ALTER TABLE {$schema}.{$table} SET SCHEMA public");
+                foreach (array_reverse($tables) as $table) {
+                    DB::statement("ALTER TABLE {$schema}.{$table} SET SCHEMA public");
+                }
             }
-            foreach (array_reverse(array_keys(self::TABLES)) as $schema) DB::statement("DROP SCHEMA IF EXISTS {$schema}");
+            foreach (array_reverse(array_keys(self::TABLES)) as $schema) {
+                DB::statement("DROP SCHEMA IF EXISTS {$schema}");
+            }
             $this->createTileViews(true);
         });
     }

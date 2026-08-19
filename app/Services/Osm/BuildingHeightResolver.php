@@ -36,17 +36,24 @@ class BuildingHeightResolver
 
     private function number(mixed $value): ?float
     {
-        if ($value === null || $value === '') return null;
-        if (is_numeric($value)) return (float) $value;
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
         if (preg_match('/-?\d+(?:[.,]\d+)?/', (string) $value, $matches)) {
             return (float) str_replace(',', '.', $matches[0]);
         }
+
         return null;
     }
 
     private function meters(mixed $value): ?float
     {
-        if ($value === null || $value === '') return null;
+        if ($value === null || $value === '') {
+            return null;
+        }
         $text = trim((string) $value);
         if (preg_match('/^(\d+(?:[.,]\d+)?)\s*(?:m|meter|meters)?$/i', $text, $matches)) {
             return (float) str_replace(',', '.', $matches[1]);
@@ -54,6 +61,7 @@ class BuildingHeightResolver
         if (preg_match('/^(\d+)\s*[\x{2032}\x{0027}]\s*(\d+)?/u', $text, $matches)) {
             return round(((int) $matches[1] * 0.3048) + ((int) ($matches[2] ?? 0) * 0.0254), 2);
         }
+
         return null;
     }
 }

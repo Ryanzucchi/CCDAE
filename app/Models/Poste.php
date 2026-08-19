@@ -3,14 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Poste extends Model
 {
     use LogsActivity;
 
     protected $table = 'postes';
+
     protected $guarded = [];
 
     protected $casts = [
@@ -18,7 +19,7 @@ class Poste extends Model
         'longitude' => 'decimal:7',
         'data_instalacao' => 'date',
         'ultima_manutencao' => 'date',
-        'possui_iluminacao' => 'boolean'
+        'possui_iluminacao' => 'boolean',
     ];
 
     public function getActivitylogOptions(): LogOptions

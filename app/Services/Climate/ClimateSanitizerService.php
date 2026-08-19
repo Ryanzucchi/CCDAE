@@ -15,20 +15,20 @@ class ClimateSanitizerService
      */
     public function sanitize()
     {
-        Log::info("Iniciando sanitização climática e agrupamento temporal...");
+        Log::info('Iniciando sanitização climática e agrupamento temporal...');
 
         // 1. Obter adjacências (grafo de vizinhos) via PostGIS
         $adjacencies = $this->getAdjacencies();
 
         // 2. Buscar leituras idênticas (baseado em temperatura como proxy principal do payload da estação)
         // Agrupa distritos que tiveram a MESMA temperatura no MESMO segundo.
-        $identicalReadings = DB::select("
+        $identicalReadings = DB::select('
             SELECT timestamp, temperatura, array_agg(distrito_id) as distritos
             FROM temperatura_registrada
             GROUP BY timestamp, temperatura
             HAVING count(distrito_id) > 1
             ORDER BY timestamp ASC
-        ");
+        ');
 
         $activeClusters = [];
         $completedClusters = [];
@@ -36,8 +36,10 @@ class ClimateSanitizerService
         foreach ($identicalReadings as $reading) {
             $timestamp = $reading->timestamp;
             $distritosRaw = trim($reading->distritos, '{}');
-            if (empty($distritosRaw)) continue;
-            
+            if (empty($distritosRaw)) {
+                continue;
+            }
+
             $distritosIds = explode(',', $distritosRaw);
 
             // 3. Encontrar componentes conectados (sub-grupos que realmente são vizinhos)
@@ -47,19 +49,21 @@ class ClimateSanitizerService
             $continuedKeys = [];
 
             foreach ($components as $comp) {
-                if (count($comp) < 2) continue; // Precisa de pelo menos 2 para agrupar
-                
+                if (count($comp) < 2) {
+                    continue;
+                } // Precisa de pelo menos 2 para agrupar
+
                 sort($comp);
                 $clusterKey = implode(',', $comp);
                 $continuedKeys[] = $clusterKey;
 
-                if (!isset($activeClusters[$clusterKey])) {
+                if (! isset($activeClusters[$clusterKey])) {
                     // Novo cluster ativo (início da ilha de similaridade)
                     $activeClusters[$clusterKey] = [
                         'start' => $timestamp,
-                        'last'  => $timestamp,
+                        'last' => $timestamp,
                         'count' => 1,
-                        'distritos' => $comp
+                        'distritos' => $comp,
                     ];
                 } else {
                     // Cluster continua igual (mesma temperatura) neste timestamp
@@ -70,7 +74,7 @@ class ClimateSanitizerService
 
             // 4. Fechar clusters que pararam de combinar (não estão em $continuedKeys)
             foreach ($activeClusters as $key => $data) {
-                if (!in_array($key, $continuedKeys)) {
+                if (! in_array($key, $continuedKeys)) {
                     // A "ilha" quebrou. Se durou pelo menos 2 leituras, salva.
                     if ($data['count'] >= 2) {
                         $completedClusters[] = $data;
@@ -96,6 +100,7 @@ class ClimateSanitizerService
         }
 
         Log::info("Sanitização concluída. Registros redundantes deletados: {$totalRedundantDeleted}");
+
         return $totalRedundantDeleted;
     }
 
@@ -104,7 +109,7 @@ class ClimateSanitizerService
      */
     private function getAdjacencies(): array
     {
-        $rows = DB::select("
+        $rows = DB::select('
             SELECT a.id as d1, b.id as d2 
             FROM distritos a, distritos b 
             WHERE a.id < b.id 
@@ -112,13 +117,14 @@ class ClimateSanitizerService
                 ST_SetSRID(ST_GeomFromGeoJSON(a.geojson::text), 4326), 
                 ST_SetSRID(ST_GeomFromGeoJSON(b.geojson::text), 4326)
             )
-        ");
+        ');
 
         $graph = [];
         foreach ($rows as $row) {
             $graph[$row->d1][] = $row->d2;
             $graph[$row->d2][] = $row->d1;
         }
+
         return $graph;
     }
 
@@ -132,18 +138,18 @@ class ClimateSanitizerService
         $visited = [];
 
         foreach ($nodes as $node) {
-            if (!isset($visited[$node])) {
+            if (! isset($visited[$node])) {
                 $component = [];
                 $queue = [$node];
                 $visited[$node] = true;
 
-                while (!empty($queue)) {
+                while (! empty($queue)) {
                     $current = array_shift($queue);
                     $component[] = $current;
 
                     if (isset($adjacencies[$current])) {
                         foreach ($adjacencies[$current] as $neighbor) {
-                            if (in_array($neighbor, $nodes) && !isset($visited[$neighbor])) {
+                            if (in_array($neighbor, $nodes) && ! isset($visited[$neighbor])) {
                                 $visited[$neighbor] = true;
                                 $queue[] = $neighbor;
                             }
@@ -165,9 +171,9 @@ class ClimateSanitizerService
         $distritos = $cluster['distritos'];
         $start = $cluster['start'];
         $end = $cluster['last'];
-        
+
         // Ex: "Região 1-4-8"
-        $regiaoName = "Região " . implode('-', $distritos);
+        $regiaoName = 'Região '.implode('-', $distritos);
         $regiao = RegiaoClimatica::firstOrCreate(['nome' => $regiaoName]);
 
         // Evita duplicar o vínculo exato (caso a rotina rode novamente)
@@ -186,7 +192,7 @@ class ClimateSanitizerService
         foreach ($distritos as $dId) {
             $regiao->distritos()->attach($dId, [
                 'start_time' => $start,
-                'end_time'   => $end
+                'end_time' => $end,
             ]);
         }
 
@@ -194,13 +200,13 @@ class ClimateSanitizerService
         // O primeiro distrito é eleito o "Primário" para essa faixa, os outros terão seus dados apagados
         $redundantIds = array_slice($distritos, 1);
         $tables = [
-            'temperatura_registrada', 
-            'chuva_registrada', 
-            'vento_registrado', 
-            'pressao_atmosferica', 
-            'radiacao_solar', 
-            'indice_uv', 
-            'particula_ar'
+            'temperatura_registrada',
+            'chuva_registrada',
+            'vento_registrado',
+            'pressao_atmosferica',
+            'radiacao_solar',
+            'indice_uv',
+            'particula_ar',
         ];
 
         $deletedCount = 0;

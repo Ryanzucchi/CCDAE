@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 
 class ManageDistritos extends ManageRecords
@@ -34,21 +35,23 @@ class ManageDistritos extends ManageRecords
                     $data['latitude'] = $data['latitude'] ?? null;
                     $data['longitude'] = $data['longitude'] ?? null;
 
-                    if (!empty($data['geojson'])) {
+                    if (! empty($data['geojson'])) {
                         try {
-                            $centroid = \Illuminate\Support\Facades\DB::selectOne(
-                                "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                            $centroid = DB::selectOne(
+                                'SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat',
                                 [json_encode($data['geojson']), json_encode($data['geojson'])]
                             );
                             if ($centroid && $centroid->lat && $centroid->lng) {
                                 $data['latitude'] = round($centroid->lat, 6);
                                 $data['longitude'] = round($centroid->lng, 6);
                             }
-                        } catch (\Exception $e) {}
+                        } catch (\Exception $e) {
+                        }
                     }
 
                     unset($data['location']);
                     unset($data['map_injector']);
+
                     return $data;
                 }),
         ];
@@ -70,7 +73,7 @@ class ManageDistritos extends ManageRecords
 
     public function getDistritosDaCidadeProperty()
     {
-        if (!$this->cidadeSelecionada) {
+        if (! $this->cidadeSelecionada) {
             return [];
         }
 
@@ -87,7 +90,7 @@ class ManageDistritos extends ManageRecords
             ->form(fn () => DistritoResource::form(Schema::make())->getComponents())
             ->fillForm(fn (array $arguments) => Distrito::find($arguments['id'])?->toArray() ?? [])
             ->action(function (array $data, array $arguments): void {
-                file_put_contents(storage_path('logs/debug_edit.log'), "RAW EDIT DATA: " . json_encode($data) . "\n", FILE_APPEND);
+                file_put_contents(storage_path('logs/debug_edit.log'), 'RAW EDIT DATA: '.json_encode($data)."\n", FILE_APPEND);
                 $distrito = Distrito::find($arguments['id']);
                 if ($distrito) {
                     $location = $data['location'] ?? [];
@@ -99,22 +102,23 @@ class ManageDistritos extends ManageRecords
                     $data['latitude'] = $data['latitude'] ?? null;
                     $data['longitude'] = $data['longitude'] ?? null;
 
-                    if (!empty($data['geojson'])) {
+                    if (! empty($data['geojson'])) {
                         try {
-                            $centroid = \Illuminate\Support\Facades\DB::selectOne(
-                                "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                            $centroid = DB::selectOne(
+                                'SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat',
                                 [json_encode($data['geojson']), json_encode($data['geojson'])]
                             );
                             if ($centroid && $centroid->lat && $centroid->lng) {
                                 $data['latitude'] = round($centroid->lat, 6);
                                 $data['longitude'] = round($centroid->lng, 6);
                             }
-                        } catch (\Exception $e) {}
+                        } catch (\Exception $e) {
+                        }
                     }
 
                     unset($data['location']);
                     unset($data['map_injector']);
-                    file_put_contents(storage_path('logs/debug.log'), "EDIT SAVE DATA: " . json_encode($data) . "\n", FILE_APPEND);
+                    file_put_contents(storage_path('logs/debug.log'), 'EDIT SAVE DATA: '.json_encode($data)."\n", FILE_APPEND);
                     $distrito->update($data);
                 }
             });
@@ -124,13 +128,14 @@ class ManageDistritos extends ManageRecords
     {
         $cleanedActions = [];
         foreach ($mountedActions as $action) {
-            if (is_array($action) && !empty($action['name'])) {
+            if (is_array($action) && ! empty($action['name'])) {
                 $cleanedActions[] = $action;
             } else {
-                file_put_contents(storage_path('logs/debug.log'), "REMOVED INVALID ACTION: " . json_encode($action) . "\n", FILE_APPEND);
+                file_put_contents(storage_path('logs/debug.log'), 'REMOVED INVALID ACTION: '.json_encode($action)."\n", FILE_APPEND);
             }
         }
         $this->mountedActions = $cleanedActions;
+
         return parent::cacheMountedActions($cleanedActions);
     }
 }

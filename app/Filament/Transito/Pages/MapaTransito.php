@@ -9,9 +9,13 @@ use Filament\Pages\Page;
 class MapaTransito extends Page
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map';
+
     protected static ?string $navigationLabel = 'Mapa de trânsito';
+
     protected static ?string $title = 'Mapa de trânsito';
+
     protected static ?int $navigationSort = 10;
+
     protected string $view = 'filament.transito.pages.mapa-transito';
 
     public function getViasProperty(): array

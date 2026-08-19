@@ -5,9 +5,9 @@ namespace App\Filament\Admin\Resources\ActivityLogs\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 
 class ActivityLogsTable
 {

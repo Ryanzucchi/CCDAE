@@ -27,7 +27,9 @@ class GlobalBuildingAtlasProvider implements BuildingProvider
 
             foreach ($document['features'] ?? [] as $index => $feature) {
                 $geometry = $this->geometryToWgs84($feature['geometry'] ?? null);
-                if (! $geometry || ! $this->intersects($geometry, $bbox)) continue;
+                if (! $geometry || ! $this->intersects($geometry, $bbox)) {
+                    continue;
+                }
 
                 $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
                 $sourceId = (string) ($feature['id'] ?? $properties['id'] ?? $properties['fid'] ?? $properties['ID'] ?? basename($file).':'.$index);
@@ -58,35 +60,53 @@ class GlobalBuildingAtlasProvider implements BuildingProvider
         $files = [];
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory));
         foreach ($iterator as $file) {
-            if (! $file->isFile() || ! in_array(strtolower($file->getExtension()), ['geojson', 'json'], true)) continue;
+            if (! $file->isFile() || ! in_array(strtolower($file->getExtension()), ['geojson', 'json'], true)) {
+                continue;
+            }
             $files[] = $file->getPathname();
         }
         sort($files);
-        if (! $files) throw new RuntimeException('O diretório do GlobalBuildingAtlas está vazio. Copie o GeoJSON GBA.ODbLPolygon para "'.$directory.'" e execute php artisan gba:check-buildings.');
+        if (! $files) {
+            throw new RuntimeException('O diretório do GlobalBuildingAtlas está vazio. Copie o GeoJSON GBA.ODbLPolygon para "'.$directory.'" e execute php artisan gba:check-buildings.');
+        }
+
         return $files;
     }
 
     private function geometryToWgs84(mixed $geometry): ?array
     {
-        if (! is_array($geometry) || ! in_array($geometry['type'] ?? null, ['Polygon', 'MultiPolygon'], true)) return null;
+        if (! is_array($geometry) || ! in_array($geometry['type'] ?? null, ['Polygon', 'MultiPolygon'], true)) {
+            return null;
+        }
         $coordinates = $geometry['coordinates'] ?? [];
         $first = $this->firstPoint($coordinates);
-        if (! $first) return null;
+        if (! $first) {
+            return null;
+        }
         $isWebMercator = abs((float) $first[0]) > 180 || abs((float) $first[1]) > 90;
-        if ($isWebMercator) $coordinates = $this->mapPoints($coordinates, fn (array $point) => $this->mercatorToWgs84($point));
+        if ($isWebMercator) {
+            $coordinates = $this->mapPoints($coordinates, fn (array $point) => $this->mercatorToWgs84($point));
+        }
+
         return ['type' => $geometry['type'], 'coordinates' => $coordinates];
     }
 
     private function firstPoint(array $coordinates): ?array
     {
         $value = $coordinates;
-        while (is_array($value) && isset($value[0]) && is_array($value[0])) $value = $value[0];
+        while (is_array($value) && isset($value[0]) && is_array($value[0])) {
+            $value = $value[0];
+        }
+
         return isset($value[0], $value[1]) && is_numeric($value[0]) && is_numeric($value[1]) ? $value : null;
     }
 
     private function mapPoints(array $coordinates, callable $callback): array
     {
-        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) return $callback($coordinates);
+        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) {
+            return $callback($coordinates);
+        }
+
         return array_map(fn ($item) => is_array($item) ? $this->mapPoints($item, $callback) : $item, $coordinates);
     }
 
@@ -94,25 +114,31 @@ class GlobalBuildingAtlasProvider implements BuildingProvider
     {
         $longitude = (float) $point[0] / 20037508.34 * 180;
         $latitude = rad2deg(2 * atan(exp(deg2rad((float) $point[1] / 20037508.34 * 180))) - M_PI / 2);
+
         return [$longitude, $latitude];
     }
 
     private function intersects(array $geometry, array $bbox): bool
     {
         $points = $this->flatten($geometry['coordinates']);
+
         return $points && max(array_column($points, 0)) >= $bbox[0] && min(array_column($points, 0)) <= $bbox[2]
             && max(array_column($points, 1)) >= $bbox[1] && min(array_column($points, 1)) <= $bbox[3];
     }
 
     private function flatten(array $coordinates): array
     {
-        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) return [[$coordinates[0], $coordinates[1]]];
+        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) {
+            return [[$coordinates[0], $coordinates[1]]];
+        }
+
         return array_merge(...array_map(fn ($item) => is_array($item) ? $this->flatten($item) : [], $coordinates));
     }
 
     private function numericId(string $sourceId): int
     {
         $hex = substr(hash('sha256', $sourceId), 0, 15);
+
         return (int) hexdec($hex);
     }
 }

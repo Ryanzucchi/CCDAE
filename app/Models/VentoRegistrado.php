@@ -10,13 +10,17 @@ class VentoRegistrado extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'vento_registrado';
 
     public $timestamps = false;
+
     public $incrementing = false;
+
     protected $primaryKey = null;
 
     public function getKey()
@@ -25,19 +29,21 @@ class VentoRegistrado extends Model
         if ($timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
+
         return "{$this->distrito_id}_{$timestamp}";
     }
+
     protected $fillable = [
         'distrito_id',
         'timestamp',
         'velocidade',
-        'direcao'
+        'direcao',
     ];
 
     protected $casts = [
-        'timestamp'=>'datetime',
-        'velocidade'=>'float',
-        'direcao'=>'float'
+        'timestamp' => 'datetime',
+        'velocidade' => 'float',
+        'direcao' => 'float',
     ];
 
     public function distrito()

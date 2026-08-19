@@ -22,6 +22,7 @@ class InfrastructureBuildingsController extends Controller
         $version = Cache::get('osm-buildings-cache-version', '1');
         $cacheKey = 'infrastructure-buildings:'.$version.':'.implode(':', array_map(fn ($value) => number_format($value, 4, '.', ''), $bbox));
         $collection = Cache::remember($cacheKey, 60, fn () => $this->featureCollection($bbox));
+
         return response()->json($collection);
     }
 
@@ -44,7 +45,9 @@ class InfrastructureBuildingsController extends Controller
         $features = [];
         foreach ($rows as $row) {
             $geometry = is_string($row->geometry) ? json_decode($row->geometry, true) : (array) $row->geometry;
-            if (!$geometry || (DB::getDriverName() !== 'pgsql' && !$this->intersects($geometry, $bbox))) continue;
+            if (! $geometry || (DB::getDriverName() !== 'pgsql' && ! $this->intersects($geometry, $bbox))) {
+                continue;
+            }
             $features[] = [
                 'type' => 'Feature',
                 'id' => $row->id,
@@ -59,20 +62,27 @@ class InfrastructureBuildingsController extends Controller
                 ],
             ];
         }
+
         return ['type' => 'FeatureCollection', 'features' => $features, 'meta' => ['bbox' => $bbox, 'count' => count($features), 'limit' => 10000]];
     }
 
     private function intersects(array $geometry, array $bbox): bool
     {
         $points = $this->flatten($geometry['coordinates'] ?? []);
-        if (!$points) return false;
+        if (! $points) {
+            return false;
+        }
+
         return max(array_column($points, 0)) >= $bbox[0] && min(array_column($points, 0)) <= $bbox[2]
             && max(array_column($points, 1)) >= $bbox[1] && min(array_column($points, 1)) <= $bbox[3];
     }
 
     private function flatten(array $coordinates): array
     {
-        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) return [[$coordinates[0], $coordinates[1]]];
+        if (isset($coordinates[0], $coordinates[1]) && is_numeric($coordinates[0]) && is_numeric($coordinates[1])) {
+            return [[$coordinates[0], $coordinates[1]]];
+        }
+
         return array_merge(...array_map(fn ($item) => is_array($item) ? $this->flatten($item) : [], $coordinates));
     }
 }

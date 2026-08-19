@@ -2,12 +2,15 @@
 
 namespace App\Filament\Admin\Resources\CentralDistribuicaos\Schemas;
 
+use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\DB;
 
 class CentralDistribuicaoForm
 {
@@ -50,31 +53,32 @@ class CentralDistribuicaoForm
                     DatePicker::make('ultima_manutencao')->label('Última Manutenção'),
                 ]),
                 Section::make('Fronteiras e Localização (Nó do Grafo)')->schema([
-                    \Filament\Forms\Components\Hidden::make('latitude'),
-                    \Filament\Forms\Components\Hidden::make('longitude'),
-                    \Filament\Forms\Components\Hidden::make('geojson')->dehydrated(),
-                    \Dotswan\MapPicker\Fields\Map::make('location')
+                    Hidden::make('latitude'),
+                    Hidden::make('longitude'),
+                    Hidden::make('geojson')->dehydrated(),
+                    Map::make('location')
                         ->label('Desenhe o polígono da Central de Distribuição ou marque o ponto')
                         ->columnSpanFull()
                         ->dehydrated(false)
                         ->defaultLocation(latitude: -23.550520, longitude: -46.633308)
                         ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                            if (isset($state['geojson']) && !empty($state['geojson'])) {
+                            if (isset($state['geojson']) && ! empty($state['geojson'])) {
                                 $geo = $state['geojson'];
                                 if (isset($geo['type']) && $geo['type'] === 'FeatureCollection') {
                                     $geo = $geo['features'][0]['geometry'] ?? $geo;
                                 }
                                 $set('geojson', $geo);
                                 try {
-                                    $centroid = \Illuminate\Support\Facades\DB::selectOne(
-                                        "SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat", 
+                                    $centroid = DB::selectOne(
+                                        'SELECT ST_X(ST_Centroid(ST_GeomFromGeoJSON(?))) as lng, ST_Y(ST_Centroid(ST_GeomFromGeoJSON(?))) as lat',
                                         [json_encode($geo), json_encode($geo)]
                                     );
                                     if ($centroid && $centroid->lat && $centroid->lng) {
                                         $set('latitude', round($centroid->lat, 6));
                                         $set('longitude', round($centroid->lng, 6));
                                     }
-                                } catch (\Exception $e) {}
+                                } catch (\Exception $e) {
+                                }
                             } elseif (isset($state['lat']) && isset($state['lng'])) {
                                 $set('latitude', round($state['lat'], 7));
                                 $set('longitude', round($state['lng'], 7));
@@ -88,9 +92,9 @@ class CentralDistribuicaoForm
                         ->afterStateHydrated(function ($state, $record, callable $set): void {
                             if ($record) {
                                 $set('location', [
-                                    'lat' => $record->latitude, 
+                                    'lat' => $record->latitude,
                                     'lng' => $record->longitude,
-                                    'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson
+                                    'geojson' => is_string($record->geojson) ? json_decode($record->geojson, true) : $record->geojson,
                                 ]);
                             }
                         })
@@ -109,7 +113,7 @@ class CentralDistribuicaoForm
                 ]),
                 Section::make('Observações')->schema([
                     Textarea::make('observacoes')->columnSpanFull()->label('Observações Adicionais'),
-                ])
+                ]),
             ]);
     }
 }

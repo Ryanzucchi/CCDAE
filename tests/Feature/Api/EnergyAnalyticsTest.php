@@ -3,8 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Distrito;
-use App\Models\User;
 use App\Models\Poste;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +17,7 @@ class EnergyAnalyticsTest extends TestCase
         $user = User::factory()->create();
         $district = Distrito::query()->create([
             'nome' => 'Centro', 'cidade' => 'Cáceres', 'latitude' => -16.07, 'longitude' => -57.68,
-            'populacao' => 1000, 'geojson' => ['type' => 'Polygon', 'coordinates' => [[[-57.69,-16.08],[-57.67,-16.08],[-57.67,-16.06],[-57.69,-16.08]]]],
+            'populacao' => 1000, 'geojson' => ['type' => 'Polygon', 'coordinates' => [[[-57.69, -16.08], [-57.67, -16.08], [-57.67, -16.06], [-57.69, -16.08]]]],
         ]);
         Poste::query()->create(['distrito_id' => $district->id, 'latitude' => -16.071, 'longitude' => -57.681]);
         Poste::query()->create(['distrito_id' => $district->id, 'latitude' => -16.0711, 'longitude' => -57.6811]);

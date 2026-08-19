@@ -10,9 +10,11 @@ class EventoClimatico extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'eventos_climaticos';
 
     protected $fillable = [
@@ -20,12 +22,12 @@ class EventoClimatico extends Model
         'tipo',
         'inicio',
         'fim',
-        'descricao'
+        'descricao',
     ];
 
     protected $casts = [
-        'inicio'=>'datetime',
-        'fim'=>'datetime'
+        'inicio' => 'datetime',
+        'fim' => 'datetime',
     ];
 
     public function distrito()

@@ -10,9 +10,11 @@ class EstacaoMeteorologica extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'estacoes_meteorologicas';
 
     protected $fillable = [
@@ -20,12 +22,12 @@ class EstacaoMeteorologica extends Model
         'nome',
         'fonte_api',
         'latitude',
-        'longitude'
+        'longitude',
     ];
 
     protected $casts = [
-        'latitude'=>'float',
-        'longitude'=>'float'
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function distrito()

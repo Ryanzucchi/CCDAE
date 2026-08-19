@@ -7,11 +7,16 @@ use Throwable;
 
 class TomTomTrafficProvider
 {
-    public function configured(): bool { return filled(config('data_sources.traffic.tomtom_key')); }
+    public function configured(): bool
+    {
+        return filled(config('data_sources.traffic.tomtom_key'));
+    }
 
     public function flow(float $latitude, float $longitude): ?array
     {
-        if (! $this->configured()) return null;
+        if (! $this->configured()) {
+            return null;
+        }
 
         try {
             $response = Http::timeout(config('data_sources.traffic.timeout'))->retry(2, 300)->get(
@@ -22,9 +27,14 @@ class TomTomTrafficProvider
             return null;
         }
 
-        if (! $response->successful()) return null;
+        if (! $response->successful()) {
+            return null;
+        }
         $flow = $response->json('flowSegmentData');
-        if (! is_array($flow) || ! isset($flow['currentSpeed'], $flow['freeFlowSpeed'])) return null;
+        if (! is_array($flow) || ! isset($flow['currentSpeed'], $flow['freeFlowSpeed'])) {
+            return null;
+        }
+
         return $flow;
     }
 }

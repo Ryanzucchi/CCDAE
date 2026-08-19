@@ -12,6 +12,7 @@ class InternetController extends Controller
     {
         $seconds = (int) config('data_sources.analytics_cache_seconds', 300);
         $collections = Cache::remember('analytics:internet:v3', $seconds, $analytics->build(...));
+
         return response()->json($collections)->header('Cache-Control', "private, max-age={$seconds}");
     }
 }

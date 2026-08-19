@@ -9,7 +9,7 @@ class DistritosMapWidget extends Widget
 {
     protected string $view = 'filament.admin.widgets.distritos-map-widget';
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     public function getDistritos(): array
     {

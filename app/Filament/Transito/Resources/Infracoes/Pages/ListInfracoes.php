@@ -9,5 +9,9 @@ use Filament\Resources\Pages\ListRecords;
 class ListInfracoes extends ListRecords
 {
     protected static string $resource = InfracaoTransitoResource::class;
-    protected function getHeaderActions(): array { return [CreateAction::make()->label('Registrar infração')]; }
+
+    protected function getHeaderActions(): array
+    {
+        return [CreateAction::make()->label('Registrar infração')];
+    }
 }

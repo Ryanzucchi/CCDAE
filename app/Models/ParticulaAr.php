@@ -10,13 +10,17 @@ class ParticulaAr extends Model
 {
     use LogsActivity;
 
-    public function getActivitylogOptions(): LogOptions {
+    public function getActivitylogOptions(): LogOptions
+    {
         return LogOptions::defaults()->logAll(); // Registra todas as mudanças
     }
+
     protected $table = 'particulas_ar';
 
     public $timestamps = false;
+
     public $incrementing = false;
+
     protected $primaryKey = null;
 
     public function getKey()
@@ -25,8 +29,10 @@ class ParticulaAr extends Model
         if ($timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->format('Y-m-d_H:i:s');
         }
+
         return "{$this->distrito_id}_{$timestamp}";
     }
+
     protected $fillable = [
         'distrito_id',
         'timestamp',
@@ -34,13 +40,13 @@ class ParticulaAr extends Model
         'pm10',
         'poeira',
         'areia',
-        'poluentes'
+        'poluentes',
     ];
 
     protected $casts = [
-        'timestamp'=>'datetime',
-        'pm25'=>'float',
-        'pm10'=>'float'
+        'timestamp' => 'datetime',
+        'pm25' => 'float',
+        'pm10' => 'float',
     ];
 
     public function distrito()

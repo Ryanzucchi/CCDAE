@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Services\Climate\ClimateSanitizerService;
+use Illuminate\Console\Command;
 
 class SanitizeClimateDataCommand extends Command
 {
@@ -27,12 +27,13 @@ class SanitizeClimateDataCommand extends Command
     public function handle(ClimateSanitizerService $sanitizerService)
     {
         $this->info('Iniciando sanitização de dados climáticos...');
-        
+
         try {
             $deleted = $sanitizerService->sanitize();
             $this->info("Sanitização concluída com sucesso! {$deleted} registros redundantes apagados.");
         } catch (\Exception $e) {
-            $this->error("Erro durante a sanitização: " . $e->getMessage());
+            $this->error('Erro durante a sanitização: '.$e->getMessage());
+
             return Command::FAILURE;
         }
 

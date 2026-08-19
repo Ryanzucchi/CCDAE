@@ -10,7 +10,7 @@ class TrafficSimulationServiceTest extends TestCase
 {
     public function test_simulates_via_snapshot_with_and_without_real_flow(): void
     {
-        $service = new TrafficSimulationService();
+        $service = new TrafficSimulationService;
         $via = new ViaTransito([
             'id' => 99,
             'limite_velocidade' => 60,

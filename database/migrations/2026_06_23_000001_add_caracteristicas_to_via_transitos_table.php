@@ -41,7 +41,7 @@ return new class extends Migration
                 'estado_pavimento',
                 'ciclovia',
                 'faixas_exclusivas',
-                'infraestrutura_json'
+                'infraestrutura_json',
             ]);
         });
     }

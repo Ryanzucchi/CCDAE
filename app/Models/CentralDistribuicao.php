@@ -3,14 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class CentralDistribuicao extends Model
 {
     use LogsActivity;
 
     protected $table = 'centrais_distribuicao';
+
     protected $guarded = [];
 
     protected $casts = [
@@ -18,7 +19,7 @@ class CentralDistribuicao extends Model
         'longitude' => 'decimal:7',
         'data_instalacao' => 'date',
         'ultima_manutencao' => 'date',
-        'geojson' => 'array'
+        'geojson' => 'array',
     ];
 
     public function getActivitylogOptions(): LogOptions

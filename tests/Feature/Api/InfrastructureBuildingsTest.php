@@ -12,22 +12,36 @@ class InfrastructureBuildingsTest extends TestCase
 {
     protected function setUp(): void
     {
-        parent::setUp(); Cache::flush(); Schema::dropIfExists('osm_buildings');
+        parent::setUp();
+        Cache::flush();
+        Schema::dropIfExists('osm_buildings');
         Schema::create('osm_buildings', function (Blueprint $table): void {
-            $table->id(); $table->unsignedBigInteger('osm_id'); $table->string('osm_type'); $table->string('building')->nullable();
-            $table->string('name')->nullable(); $table->decimal('height')->nullable(); $table->decimal('render_height');
-            $table->decimal('render_min_height')->default(0); $table->decimal('building_levels')->nullable(); $table->string('height_source');
-            $table->json('geometry'); $table->timestamps();
+            $table->id();
+            $table->unsignedBigInteger('osm_id');
+            $table->string('osm_type');
+            $table->string('building')->nullable();
+            $table->string('name')->nullable();
+            $table->decimal('height')->nullable();
+            $table->decimal('render_height');
+            $table->decimal('render_min_height')->default(0);
+            $table->decimal('building_levels')->nullable();
+            $table->string('height_source');
+            $table->json('geometry');
+            $table->timestamps();
         });
         DB::table('osm_buildings')->insert([
             'osm_id' => 10, 'osm_type' => 'way', 'building' => 'house', 'name' => 'Casa', 'height' => null,
             'render_height' => 6, 'render_min_height' => 0, 'building_levels' => 2, 'height_source' => 'levels',
-            'geometry' => json_encode(['type' => 'MultiPolygon', 'coordinates' => [[[[-57.69,-16.08],[-57.68,-16.08],[-57.68,-16.07],[-57.69,-16.08]]]]]),
+            'geometry' => json_encode(['type' => 'MultiPolygon', 'coordinates' => [[[[-57.69, -16.08], [-57.68, -16.08], [-57.68, -16.07], [-57.69, -16.08]]]]]),
             'created_at' => now(), 'updated_at' => now(),
         ]);
     }
 
-    protected function tearDown(): void { Schema::dropIfExists('osm_buildings'); parent::tearDown(); }
+    protected function tearDown(): void
+    {
+        Schema::dropIfExists('osm_buildings');
+        parent::tearDown();
+    }
 
     public function test_bbox_is_required_and_validated(): void
     {

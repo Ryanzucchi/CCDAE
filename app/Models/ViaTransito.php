@@ -33,7 +33,7 @@ class ViaTransito extends Model
         'estado_pavimento',
         'ciclovia',
         'faixas_exclusivas',
-        'infraestrutura_json'
+        'infraestrutura_json',
     ];
 
     protected $casts = [

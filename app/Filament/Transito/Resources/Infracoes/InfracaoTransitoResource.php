@@ -17,10 +17,15 @@ use Filament\Tables\Table;
 class InfracaoTransitoResource extends Resource
 {
     protected static ?string $model = InfracaoTransito::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
+
     protected static ?string $navigationLabel = 'Infrações de trânsito';
+
     protected static ?string $modelLabel = 'infração';
+
     protected static ?string $pluralModelLabel = 'infrações de trânsito';
+
     protected static ?int $navigationSort = 20;
 
     public static function form(Schema $schema): Schema

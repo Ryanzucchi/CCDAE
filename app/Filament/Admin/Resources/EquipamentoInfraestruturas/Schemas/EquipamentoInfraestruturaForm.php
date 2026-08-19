@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Resources\EquipamentoInfraestruturas\Schemas;
 
+use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -55,9 +57,9 @@ class EquipamentoInfraestruturaForm
                     DatePicker::make('ultima_manutencao')->label('Última Manutenção'),
                 ]),
                 Section::make('Localização Física (Caso não vinculado a Poste/Central)')->schema([
-                    \Filament\Forms\Components\Hidden::make('latitude'),
-                    \Filament\Forms\Components\Hidden::make('longitude'),
-                    \Dotswan\MapPicker\Fields\Map::make('location')
+                    Hidden::make('latitude'),
+                    Hidden::make('longitude'),
+                    Map::make('location')
                         ->label('Clique no mapa para marcar a posição')
                         ->columnSpanFull()
                         ->dehydrated(false)
@@ -84,7 +86,7 @@ class EquipamentoInfraestruturaForm
                 ]),
                 Section::make('Observações')->schema([
                     Textarea::make('observacoes')->columnSpanFull()->label('Observações Adicionais'),
-                ])
+                ]),
             ]);
     }
 }

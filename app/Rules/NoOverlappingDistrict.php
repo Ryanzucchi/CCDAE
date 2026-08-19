@@ -2,9 +2,9 @@
 
 namespace App\Rules;
 
+use App\Models\Distrito;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use App\Models\Distrito;
 
 class NoOverlappingDistrict implements ValidationRule
 {
@@ -18,7 +18,7 @@ class NoOverlappingDistrict implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         // $value vem do Dotswan MapPicker, que tem ['lat', 'lng', 'geojson']
-        if (empty($value) || !isset($value['geojson'])) {
+        if (empty($value) || ! isset($value['geojson'])) {
             return;
         }
 
@@ -31,7 +31,9 @@ class NoOverlappingDistrict implements ValidationRule
         // PostGIS ST_GeomFromGeoJSON não aceita FeatureCollection, apenas Geometrias (Polygon, Point, etc)
         if (isset($geojsonArray['type']) && $geojsonArray['type'] === 'FeatureCollection') {
             $geojsonArray = $geojsonArray['features'][0]['geometry'] ?? null;
-            if (!$geojsonArray) return;
+            if (! $geojsonArray) {
+                return;
+            }
         }
 
         $geojson = json_encode($geojsonArray);
@@ -39,14 +41,14 @@ class NoOverlappingDistrict implements ValidationRule
         // Verifica interseção no PostGIS: Intersecciona MAS NÃO toca (para permitir distritos vizinhos de muro)
         // O `geojson::text` transforma o campo JSON do postgres em texto para a função interpretar
         $query = Distrito::whereNotNull('geojson')
-            ->whereRaw("ST_Intersects(
+            ->whereRaw('ST_Intersects(
                 ST_SetSRID(ST_GeomFromGeoJSON(?), 4326),
                 ST_SetSRID(ST_GeomFromGeoJSON(geojson::text), 4326)
-            )", [$geojson])
-            ->whereRaw("NOT ST_Touches(
+            )', [$geojson])
+            ->whereRaw('NOT ST_Touches(
                 ST_SetSRID(ST_GeomFromGeoJSON(?), 4326),
                 ST_SetSRID(ST_GeomFromGeoJSON(geojson::text), 4326)
-            )", [$geojson]);
+            )', [$geojson]);
 
         if ($this->ignoreId) {
             $query->where('id', '!=', $this->ignoreId);

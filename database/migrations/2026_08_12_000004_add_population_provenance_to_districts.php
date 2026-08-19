@@ -13,6 +13,7 @@ return new class extends Migration
             $table->timestamp('populacao_atualizada_em')->nullable()->after('populacao_fonte');
         });
     }
+
     public function down(): void
     {
         Schema::table('distritos', fn (Blueprint $table) => $table->dropColumn(['populacao_fonte', 'populacao_atualizada_em']));

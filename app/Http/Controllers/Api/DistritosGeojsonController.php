@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Distrito;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DistritosGeojsonController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): JsonResponse
     {
         $distritos = Distrito::whereNotNull('geojson')->get(['id', 'nome', 'geojson']);
-        
+
         $features = [];
         foreach ($distritos as $distrito) {
             $geo = is_string($distrito->geojson) ? json_decode($distrito->geojson, true) : $distrito->geojson;
-            
+
             if (isset($geo['type']) && $geo['type'] !== 'Feature') {
                 $features[] = [
                     'type' => 'Feature',
@@ -23,7 +24,7 @@ class DistritosGeojsonController extends Controller
                         'id' => $distrito->id,
                         'nome' => $distrito->nome,
                     ],
-                    'geometry' => $geo
+                    'geometry' => $geo,
                 ];
             } else {
                 if (isset($geo['properties'])) {
@@ -38,10 +39,10 @@ class DistritosGeojsonController extends Controller
                 $features[] = $geo;
             }
         }
-        
+
         return response()->json([
             'type' => 'FeatureCollection',
-            'features' => $features
+            'features' => $features,
         ]);
     }
 }

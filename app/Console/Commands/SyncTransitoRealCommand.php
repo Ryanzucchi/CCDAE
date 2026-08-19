@@ -114,6 +114,7 @@ class SyncTransitoRealCommand extends Command
             ViaTransito::truncate();
 
             $inseridos = 0;
+            $recordsBuffer = [];
 
             $bar = $this->output->createProgressBar(count($elements));
             $bar->start();
@@ -194,19 +195,32 @@ class SyncTransitoRealCommand extends Command
                     $impacto = 'alto';
                 }
 
-                ViaTransito::create([
+                $recordsBuffer[] = [
                     'distrito_id' => $closestDistritoId,
                     'nome' => $nome,
-                    'geojson' => $geojson,
+                    'geojson' => json_encode($geojson),
                     'nivel_congestionamento' => $nivel,
                     'velocidade_media' => $velocidade,
                     'volume_veiculos' => rand(100, 2000),
                     'impacto_manutencao' => $impacto,
                     'ultima_atualizacao' => now(),
-                ]);
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
 
-                $inseridos++;
+                if (count($recordsBuffer) >= 200) {
+                    ViaTransito::insert($recordsBuffer);
+                    $inseridos += count($recordsBuffer);
+                    $recordsBuffer = [];
+                }
+
                 $bar->advance();
+            }
+
+            if (! empty($recordsBuffer)) {
+                ViaTransito::insert($recordsBuffer);
+                $inseridos += count($recordsBuffer);
+                $recordsBuffer = [];
             }
 
             $bar->finish();

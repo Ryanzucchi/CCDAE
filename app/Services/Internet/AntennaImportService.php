@@ -16,6 +16,9 @@ class AntennaImportService
         $updated = 0;
         $ignored = 0;
         $source = $this->provider->source();
+
+        $existingIds = DB::table('antenas')->where('fonte_dado', $source)->pluck('id', 'external_id')->all();
+
         foreach ($this->provider->antennasForBbox($bbox) as $element) {
             $latitude = $element['lat'] ?? $element['center']['lat'] ?? null;
             $longitude = $element['lon'] ?? $element['center']['lon'] ?? null;
@@ -27,9 +30,26 @@ class AntennaImportService
             $tags = $element['tags'] ?? [];
             $externalId = ($element['type'] ?? 'node').':'.$element['id'];
             $identity = ['fonte_dado' => $source, 'external_id' => $externalId];
-            $exists = DB::table('antenas')->where($identity)->exists();
-            DB::table('antenas')->updateOrInsert($identity, ['latitude' => $latitude, 'longitude' => $longitude, 'tipo_sinal' => $this->signal($tags), 'proprietario' => $tags['operator'] ?? $tags['owner'] ?? null, 'estado_conservacao' => 'bom', 'codigo_patrimonio' => 'OSM-'.str_replace(':', '-', $externalId), 'tags_origem' => json_encode($tags), 'sincronizado_em' => now(), 'distrito_id' => $this->districts->forPoint((float) $longitude, (float) $latitude)]);
-            $exists ? $updated++ : $created++;
+            $exists = isset($existingIds[$externalId]);
+
+            DB::table('antenas')->updateOrInsert($identity, [
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'tipo_sinal' => $this->signal($tags),
+                'proprietario' => $tags['operator'] ?? $tags['owner'] ?? null,
+                'estado_conservacao' => 'bom',
+                'codigo_patrimonio' => 'OSM-'.str_replace(':', '-', $externalId),
+                'tags_origem' => json_encode($tags),
+                'sincronizado_em' => now(),
+                'distrito_id' => $this->districts->forPoint((float) $longitude, (float) $latitude),
+            ]);
+
+            if ($exists) {
+                $updated++;
+            } else {
+                $created++;
+                $existingIds[$externalId] = true;
+            }
         }
 
         return compact('created', 'updated', 'ignored');
@@ -42,7 +62,9 @@ class AntennaImportService
         }
 
         return match ($tags['communication:radio'] ?? null) {
-            'fm' => 'Rádio FM','am' => 'Rádio AM',default => 'Telecomunicações'
+            'fm' => 'Rádio FM',
+            'am' => 'Rádio AM',
+            default => 'Telecomunicações',
         };
     }
 }

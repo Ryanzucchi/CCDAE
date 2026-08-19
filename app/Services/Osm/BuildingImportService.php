@@ -20,6 +20,15 @@ class BuildingImportService
         $elements = $this->provider->buildingsForBbox($bbox);
         $stats = ['found' => count($elements), 'created' => 0, 'updated' => 0, 'errors' => 0, 'error_messages' => []];
 
+        if (empty($elements)) {
+            return $stats;
+        }
+
+        $osmIds = array_filter(array_column($elements, 'id'));
+        $existingRecords = ! empty($osmIds)
+            ? OsmBuilding::query()->whereIn('osm_id', $osmIds)->get(['id', 'osm_type', 'osm_id'])->keyBy(fn ($b) => $b->osm_type.':'.$b->osm_id)
+            : collect();
+
         foreach ($elements as $element) {
             try {
                 $geometry = $this->geometries->fromElement($element);
@@ -37,9 +46,13 @@ class BuildingImportService
                     'tags' => $tags,
                     'synced_at' => now(),
                 ];
-                $created = DB::transaction(function () use ($element, $geometry, $attributes): bool {
-                    $record = OsmBuilding::query()->firstOrNew(['osm_type' => $element['type'], 'osm_id' => $element['id']]);
-                    $created = ! $record->exists;
+
+                $key = ($element['type'] ?? '').':'.($element['id'] ?? '');
+                $existing = $existingRecords->get($key);
+
+                $created = DB::transaction(function () use ($element, $geometry, $attributes, $existing): bool {
+                    $record = $existing ?: new OsmBuilding(['osm_type' => $element['type'], 'osm_id' => $element['id']]);
+                    $isNew = ! $record->exists;
                     $record->fill($attributes);
                     $record->save();
                     $geojson = json_encode($geometry, JSON_THROW_ON_ERROR);
@@ -49,7 +62,7 @@ class BuildingImportService
                         DB::table('osm_buildings')->where('id', $record->id)->update(['geometry' => $geojson]);
                     }
 
-                    return $created;
+                    return $isNew;
                 });
                 $stats[$created ? 'created' : 'updated']++;
             } catch (\Throwable $exception) {

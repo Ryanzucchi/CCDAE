@@ -1,4 +1,5 @@
 import { featureCollection, point } from '@turf/helpers';
+import './three/infrastructure-3d-scene';
 import {
     createMap,
     fitMapToFeatureCollection,

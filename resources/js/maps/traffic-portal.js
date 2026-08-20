@@ -1,6 +1,6 @@
 import { featureCollection } from '@turf/helpers';
 import { createMap, fitMapToFeatureCollection, maplibregl } from './maplibre/base-map';
-import { MapLegendControl, TimeRangeControl } from './maplibre/legend-control';
+import { MapLegendControl, SurfaceElevationSliderControl, TimeRangeControl } from './maplibre/legend-control';
 
 const DEFINITIONS = {
     infracoes: { title: 'Infrações', colors: ['#fef3c7', '#fb923c', '#dc2626', '#7f1d1d'], maximumColor: '#f0abfc', extremeColor: '#39ff14', altitude: 1350, influence: 0.0030 },
@@ -175,7 +175,11 @@ function createShader(gl, type, source) {
 
 function createWaveLayer(id, surface) {
     return {
-        id, type: 'custom', renderingMode: '3d',
+        id, type: 'custom', renderingMode: '3d', minWeight: 0.004,
+        setMinWeight(val) {
+            this.minWeight = Math.max(0.004, Math.min(1.0, val));
+            this.map?.triggerRepaint();
+        },
         onAdd(map, gl) {
             this.map = map;
             const vertexShader = createShader(gl, gl.VERTEX_SHADER, `#version 300 es
@@ -196,15 +200,17 @@ function createWaveLayer(id, surface) {
                 }`);
             const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
                 precision highp float;
+                uniform float u_min_weight;
                 in vec3 v_color;
                 in vec3 v_normal;
                 in float v_weight;
                 out vec4 outColor;
                 void main() {
-                    if (v_weight < 0.004) discard;
+                    if (v_weight < u_min_weight) discard;
                     vec3 normal = normalize(v_normal);
                     float light = 0.68 + 0.32 * abs(dot(normal, normalize(vec3(-0.45, 0.35, 0.82))));
-                    float alpha = smoothstep(0.004, 0.10, v_weight) * 0.80;
+                    float alpha = smoothstep(u_min_weight, min(1.0, u_min_weight + 0.08), v_weight) * 0.82;
+                    if (alpha <= 0.0) discard;
                     vec3 shadedColor = v_color * light;
                     outColor = vec4(shadedColor * alpha, alpha);
                 }`);
@@ -216,6 +222,7 @@ function createWaveLayer(id, surface) {
             gl.deleteShader(vertexShader);
             gl.deleteShader(fragmentShader);
             this.matrixLocation = gl.getUniformLocation(this.program, 'u_matrix');
+            this.minWeightLocation = gl.getUniformLocation(this.program, 'u_min_weight');
             this.vao = gl.createVertexArray();
             gl.bindVertexArray(this.vao);
             const positionBuffer = gl.createBuffer();
@@ -252,6 +259,7 @@ function createWaveLayer(id, surface) {
             this.projectionMatrix = args.defaultProjectionData.mainMatrix;
             gl.useProgram(this.program);
             gl.uniformMatrix4fv(this.matrixLocation, false, args.defaultProjectionData.mainMatrix);
+            gl.uniform1f(this.minWeightLocation, this.minWeight ?? 0.004);
             gl.bindVertexArray(this.vao);
             gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
             gl.bindVertexArray(null);
@@ -338,7 +346,7 @@ async function initializeIntensityMap(container) {
     };
     const selectedEnd = pageQuery.get('fim') || toLocalInput(new Date());
     const selectedStart = pageQuery.get('inicio') || toLocalInput(new Date(Date.now() - 24 * 60 * 60 * 1000));
-    if (!energyMap) map.addControl(new TimeRangeControl({
+    if (!energyMap && !internetMap) map.addControl(new TimeRangeControl({
         start: selectedStart,
         end: selectedEnd,
         onApply: ({ start, end }) => {
@@ -369,14 +377,28 @@ async function initializeIntensityMap(container) {
                 maximum: formatScaleValue(data.properties?.maximum ?? 0),
                 gradient: discreteGradient(),
             }), 'top-right');
+
+            let currentElevationCutoff = 0.01;
             const surface = buildWaveSurface(data, type, definition);
             const waveLayer = createWaveLayer(`traffic-${type}-wave-surface`, surface);
             map.addLayer(waveLayer);
             const hoverPoint = createHoverPointLayer(`traffic-${type}-hover-point`);
             map.addLayer(hoverPoint);
+
             const tooltip = document.createElement('div');
             tooltip.className = 'pointer-events-none absolute z-30 hidden rounded-lg bg-gray-950/90 px-3 py-2 text-xs text-white shadow-xl';
             container.parentElement?.appendChild(tooltip);
+
+            map.addControl(new SurfaceElevationSliderControl({
+                initialValue: 1,
+                onChange: (percentage) => {
+                    currentElevationCutoff = percentage === 1 ? 0.004 : (percentage / 100);
+                    waveLayer.setMinWeight(currentElevationCutoff);
+                    hoverPoint.hide();
+                    tooltip.classList.add('hidden');
+                },
+            }), 'top-right');
+
             const candidates = data.features.map((feature) => {
                 const numericValue = Number(feature.properties?.value) || 0;
                 const weight = Number(feature.properties?.weight) || 0;
@@ -390,6 +412,7 @@ async function initializeIntensityMap(container) {
                 let nearest = null;
                 let nearestDistance = 18;
                 for (const candidate of candidates) {
+                    if (candidate.weight < currentElevationCutoff) continue;
                     const projected = waveLayer.project(candidate.coordinate, map.getCanvas().clientWidth, map.getCanvas().clientHeight);
                     if (!projected) continue;
                     const distance = Math.hypot(projected.x - event.point.x, projected.y - event.point.y);

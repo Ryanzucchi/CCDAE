@@ -377,15 +377,6 @@ async function initializeIntensityMap(container) {
                 return;
             }
 
-            const formatScaleValue = (value) => {
-                const num = Number(value);
-                if (!Number.isFinite(num)) return '0';
-                if (num === 0) return '0';
-                if (Math.abs(num) >= 100) return num.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-                if (Math.abs(num) >= 1) return num.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-                return num.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-            };
-
             const featureValues = (data.features || [])
                 .map((f) => Number(f.properties?.value))
                 .filter((v) => Number.isFinite(v));
@@ -393,21 +384,50 @@ async function initializeIntensityMap(container) {
             let rawMin = Number(data.properties?.minimum);
             let rawMax = Number(data.properties?.maximum);
 
-            if (!Number.isFinite(rawMin) || (rawMin === 0 && rawMax === 0 && featureValues.length > 0)) {
-                rawMin = featureValues.length ? Math.min(...featureValues) : 0;
-            }
-            if (!Number.isFinite(rawMax) || (rawMax === 0 && featureValues.length > 0)) {
-                rawMax = featureValues.length ? Math.max(...featureValues) : 0;
+            if (!Number.isFinite(rawMin) || !Number.isFinite(rawMax) || (rawMin === 0 && rawMax === 0)) {
+                if (featureValues.length > 0) {
+                    rawMin = Math.min(...featureValues);
+                    rawMax = Math.max(...featureValues);
+                }
             }
 
-            const rangeSpan = Math.max(0, rawMax - rawMin);
+            const isFlatScale = !Number.isFinite(rawMax) || rawMax <= rawMin || (rawMin === 0 && rawMax === 0);
+
+            const formatDisplayValue = (val, asPercent = false) => {
+                if (asPercent) return `${Math.round(val)}%`;
+                const num = Number(val);
+                if (!Number.isFinite(num)) return '0';
+                if (num === 0) return '0';
+                if (Math.abs(num) >= 100) return num.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                if (Math.abs(num) >= 1) return num.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+                return num.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+            };
+
+            const getLegendStrings = (percentage) => {
+                const p = Math.max(1, Math.min(100, Math.round(percentage)));
+                if (isFlatScale) {
+                    return {
+                        minStr: p === 1 ? '0%' : `${p}%`,
+                        maxStr: '100%',
+                        badgeStr: p === 1 ? '10 faixas de 10%' : (p >= 100 ? 'Pico Máximo' : `Escala ${p}% a 100%`),
+                    };
+                }
+                const visibleMin = p === 1 ? rawMin : (p >= 100 ? rawMax : rawMin + (rawMax - rawMin) * (p / 100));
+                return {
+                    minStr: formatDisplayValue(visibleMin, false),
+                    maxStr: formatDisplayValue(rawMax, false),
+                    badgeStr: p === 1 ? '10 faixas de 10%' : (p >= 100 ? 'Pico Máximo' : `Escala ${p}% a 100%`),
+                };
+            };
+
+            const initialStrings = getLegendStrings(1);
 
             const legendControl = new MapLegendControl({
                 title: definition.title,
                 subtitle: 'Intensidade relativa na cidade',
-                badge: '10 faixas de 10%',
-                minimum: formatScaleValue(rawMin),
-                maximum: formatScaleValue(rawMax),
+                badge: initialStrings.badgeStr,
+                minimum: initialStrings.minStr,
+                maximum: initialStrings.maxStr,
                 gradient: discreteGradient(),
             });
             map.addControl(legendControl, 'top-right');
@@ -444,37 +464,25 @@ async function initializeIntensityMap(container) {
                 initialValue: 1,
                 onChange: (percentage) => {
                     const num = Math.max(1, Math.min(100, Math.round(percentage)));
+                    const { minStr, maxStr, badgeStr } = getLegendStrings(num);
+
                     if (num === 1) {
                         currentElevationCutoff = 0.004;
                         hoverPoint.hide();
                         tooltip.classList.add('hidden');
-                        legendControl.updateRange(
-                            formatScaleValue(rawMin),
-                            formatScaleValue(rawMax),
-                            '10 faixas de 10%'
-                        );
                     } else if (num === 100) {
                         currentElevationCutoff = Math.max(0.005, maxSurfaceWeight - 0.015);
                         if (topCandidate) {
                             hoverPoint.setPoint(topCandidate.longitude, topCandidate.latitude, topCandidate.altitude);
                         }
-                        legendControl.updateRange(
-                            formatScaleValue(rawMax),
-                            formatScaleValue(rawMax),
-                            'Pico Máximo (100%)'
-                        );
                     } else {
                         const progress = (num - 1) / 99;
                         currentElevationCutoff = 0.004 + progress * (maxSurfaceWeight - 0.025);
                         hoverPoint.hide();
                         tooltip.classList.add('hidden');
-                        const visibleMin = rawMin + rangeSpan * progress;
-                        legendControl.updateRange(
-                            formatScaleValue(visibleMin),
-                            formatScaleValue(rawMax),
-                            `Escala ${num}% a 100%`
-                        );
                     }
+
+                    legendControl.updateRange(minStr, maxStr, badgeStr);
                     waveLayer.setMinWeight(currentElevationCutoff);
                 },
             }), 'top-right');
@@ -511,7 +519,7 @@ async function initializeIntensityMap(container) {
                 title.textContent = nearest.feature.properties?.name || 'Local sem via identificada';
                 details.className = 'mt-1 space-y-0.5';
                 const rows = [
-                    `${definition.title}: ${formatScaleValue(nearest.numericValue)}`,
+                    `${definition.title}: ${formatDisplayValue(nearest.numericValue, false)}`,
                     `Classificação no corte: ${classification.label}`,
                     `Faixa de cor ativa: ${activeBand * 10}–${(activeBand + 1) * 10}%`,
                     `Percentual geral na cidade: ${(effectiveWeight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,

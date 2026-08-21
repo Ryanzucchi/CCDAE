@@ -158,9 +158,9 @@ function createShader(gl, type, source) {
 
 function createWaveLayer(id, surface) {
     return {
-        id, type: 'custom', renderingMode: '3d', minWeight: 0.004,
+        id, type: 'custom', renderingMode: '3d', minWeight: 0.025,
         setMinWeight(val) {
-            this.minWeight = Math.max(0.004, Math.min(1.0, val));
+            this.minWeight = Math.max(0.001, Math.min(0.999, val));
             this.map?.triggerRepaint();
         },
         onAdd(map, gl) {
@@ -199,7 +199,7 @@ function createWaveLayer(id, surface) {
                 );
 
                 vec3 getDynamicColor(float weight, float minWeight) {
-                    float range = max(0.001, 1.0 - minWeight);
+                    float range = max(0.015, 1.0 - minWeight);
                     float t = clamp((weight - minWeight) / range, 0.0, 0.999);
                     int band = int(floor(t * 10.0));
                     band = clamp(band, 0, 9);
@@ -210,8 +210,9 @@ function createWaveLayer(id, surface) {
                     if (v_weight < u_min_weight) discard;
                     vec3 normal = normalize(v_normal);
                     float light = 0.68 + 0.32 * abs(dot(normal, normalize(vec3(-0.45, 0.35, 0.82))));
-                    float alpha = smoothstep(u_min_weight, min(1.0, u_min_weight + 0.06), v_weight) * 0.85;
-                    if (alpha <= 0.0) discard;
+                    float fadeRange = max(0.015, (1.0 - u_min_weight) * 0.06);
+                    float alpha = smoothstep(u_min_weight, u_min_weight + fadeRange, v_weight) * 0.85;
+                    if (alpha <= 0.01) discard;
                     vec3 baseColor = getDynamicColor(v_weight, u_min_weight);
                     vec3 shadedColor = baseColor * light;
                     outColor = vec4(shadedColor * alpha, alpha);
@@ -255,7 +256,7 @@ function createWaveLayer(id, surface) {
             this.projectionMatrix = args.defaultProjectionData.mainMatrix;
             gl.useProgram(this.program);
             gl.uniformMatrix4fv(this.matrixLocation, false, args.defaultProjectionData.mainMatrix);
-            gl.uniform1f(this.minWeightLocation, this.minWeight ?? 0.004);
+            gl.uniform1f(this.minWeightLocation, this.minWeight ?? 0.025);
             gl.bindVertexArray(this.vao);
             gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
             gl.bindVertexArray(null);
@@ -296,7 +297,7 @@ function createHoverPointLayer(id) {
                 uniform vec3 u_point;
                 void main() {
                     gl_Position = u_matrix * vec4(u_point, 1.0);
-                    gl_PointSize = 15.0;
+                    gl_PointSize = 18.0;
                 }`);
             const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
                 precision highp float;
@@ -304,8 +305,11 @@ function createHoverPointLayer(id) {
                 void main() {
                     float distanceFromCenter = length(gl_PointCoord - vec2(0.5));
                     if (distanceFromCenter > 0.5) discard;
-                    float edge = smoothstep(0.5, 0.38, distanceFromCenter);
-                    outColor = vec4(vec3(1.0) * edge, edge);
+                    float ring = smoothstep(0.5, 0.40, distanceFromCenter) - smoothstep(0.35, 0.25, distanceFromCenter);
+                    float core = smoothstep(0.25, 0.12, distanceFromCenter);
+                    vec3 col = mix(vec3(0.02, 0.71, 0.83), vec3(1.0, 1.0, 1.0), core);
+                    float alpha = max(ring, core);
+                    outColor = vec4(col * alpha, alpha);
                 }`);
             this.program = gl.createProgram();
             gl.attachShader(this.program, vertexShader);
@@ -379,7 +383,6 @@ async function initializeIntensityMap(container) {
             });
             map.addControl(legendControl, 'top-right');
 
-            let currentElevationCutoff = 0.01;
             const surface = buildWaveSurface(data, type, definition);
             const waveLayer = createWaveLayer(`traffic-${type}-wave-surface`, surface);
             map.addLayer(waveLayer);
@@ -390,25 +393,6 @@ async function initializeIntensityMap(container) {
             tooltip.className = 'pointer-events-none absolute z-30 hidden rounded-lg bg-gray-950/90 px-3 py-2 text-xs text-white shadow-xl';
             container.parentElement?.appendChild(tooltip);
 
-            map.addControl(new SurfaceElevationSliderControl({
-                initialValue: 1,
-                onChange: (percentage) => {
-                    currentElevationCutoff = percentage === 1 ? 0.004 : (percentage / 100);
-                    waveLayer.setMinWeight(currentElevationCutoff);
-                    hoverPoint.hide();
-                    tooltip.classList.add('hidden');
-
-                    const effectiveFraction = currentElevationCutoff <= 0.005 ? 0 : currentElevationCutoff;
-                    const visibleMin = rawMin + rangeSpan * effectiveFraction;
-                    const visibleMax = rawMax;
-                    legendControl.updateRange(
-                        formatScaleValue(visibleMin),
-                        formatScaleValue(visibleMax),
-                        percentage === 1 ? '10 faixas relativas' : `Escala ${percentage}% a 100%`
-                    );
-                },
-            }), 'top-right');
-
             const candidates = data.features.map((feature) => {
                 const numericValue = Number(feature.properties?.value) || 0;
                 const weight = Number(feature.properties?.weight) || 0;
@@ -418,6 +402,56 @@ async function initializeIntensityMap(container) {
                 const coordinate = maplibregl.MercatorCoordinate.fromLngLat([longitude, latitude], altitude);
                 return { feature, numericValue, weight, longitude, latitude, altitude, coordinate: [coordinate.x, coordinate.y, coordinate.z] };
             });
+
+            const maxCandidate = candidates.length
+                ? candidates.reduce((prev, curr) => (curr.weight > prev.weight ? curr : prev), candidates[0])
+                : null;
+            const maxWeight = maxCandidate ? maxCandidate.weight : 1.0;
+
+            let currentElevationCutoff = 0.025;
+
+            const applyElevationCutoff = (percentage) => {
+                const num = Math.max(1, Math.min(100, Math.round(percentage)));
+                if (num === 1) {
+                    currentElevationCutoff = 0.025;
+                    hoverPoint.hide();
+                    tooltip.classList.add('hidden');
+                    legendControl.updateRange(
+                        formatScaleValue(rawMin),
+                        formatScaleValue(rawMax),
+                        '10 faixas relativas'
+                    );
+                } else if (num === 100) {
+                    // Always guarantee the #1 peak point is visible and prominently highlighted
+                    currentElevationCutoff = Math.max(0.03, maxWeight - 0.025);
+                    if (maxCandidate) {
+                        hoverPoint.setPoint(maxCandidate.longitude, maxCandidate.latitude, maxCandidate.altitude);
+                    }
+                    legendControl.updateRange(
+                        formatScaleValue(rawMax * 0.98),
+                        formatScaleValue(rawMax),
+                        'Pico Máximo (100%)'
+                    );
+                } else {
+                    const progress = (num - 1) / 99;
+                    currentElevationCutoff = 0.025 + progress * (maxWeight - 0.045);
+                    hoverPoint.hide();
+                    tooltip.classList.add('hidden');
+                    const visibleMin = rawMin + rangeSpan * progress;
+                    legendControl.updateRange(
+                        formatScaleValue(visibleMin),
+                        formatScaleValue(rawMax),
+                        `Escala ${num}% a 100%`
+                    );
+                }
+                waveLayer.setMinWeight(currentElevationCutoff);
+            };
+
+            map.addControl(new SurfaceElevationSliderControl({
+                initialValue: 1,
+                onChange: applyElevationCutoff,
+            }), 'top-right');
+
             map.on('mousemove', (event) => {
                 let nearest = null;
                 let nearestDistance = 18;
@@ -432,9 +466,11 @@ async function initializeIntensityMap(container) {
                     }
                 }
                 if (!nearest) {
-                    hoverPoint.hide();
-                    tooltip.classList.add('hidden');
-                    map.getCanvas().style.cursor = '';
+                    if (map.getCanvas().style.cursor === 'pointer') {
+                        hoverPoint.hide();
+                        tooltip.classList.add('hidden');
+                        map.getCanvas().style.cursor = '';
+                    }
                     return;
                 }
                 hoverPoint.setPoint(nearest.longitude, nearest.latitude, nearest.altitude);

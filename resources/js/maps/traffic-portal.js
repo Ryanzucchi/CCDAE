@@ -64,7 +64,7 @@ async function loadIntensityData(type, start, end, endpoint = '/api/transito/int
 }
 
 function buildSpatialIndex(points, influence) {
-    const cellSize = influence * 2;
+    const cellSize = influence * 1.5;
     const cells = new Map();
     for (const point of points) {
         const key = `${Math.floor(point.longitude / cellSize)}:${Math.floor(point.latitude / cellSize)}`;
@@ -78,8 +78,8 @@ function interpolate(index, longitude, latitude, influence) {
     let accumulatedPower = 0;
     const centerX = Math.floor(longitude / index.cellSize);
     const centerY = Math.floor(latitude / index.cellSize);
-    for (let offsetX = -2; offsetX <= 2; offsetX++) {
-        for (let offsetY = -2; offsetY <= 2; offsetY++) {
+    for (let offsetX = -3; offsetX <= 3; offsetX++) {
+        for (let offsetY = -3; offsetY <= 3; offsetY++) {
             const nearby = index.cells.get(`${centerX + offsetX}:${centerY + offsetY}`) ?? [];
             for (const point of nearby) {
                 const dx = (longitude - point.longitude) * Math.cos(latitude * Math.PI / 180);
@@ -100,7 +100,8 @@ function buildWaveSurface(data, type, definition) {
         latitude: Number(feature.geometry?.coordinates?.[1]),
         weight: Number(feature.properties?.weight) || 0,
     })).filter((point) => Number.isFinite(point.longitude) && Number.isFinite(point.latitude));
-    const padding = type === 'infracoes' ? 0.007 : (['consumo', 'populacao', 'densidade'].includes(type) ? 0.004 : 0.011);
+
+    const padding = Math.max(0.018, definition.influence * 4.5);
     const west = Math.min(...points.map((point) => point.longitude)) - padding;
     const east = Math.max(...points.map((point) => point.longitude)) + padding;
     const south = Math.min(...points.map((point) => point.latitude)) - padding;
@@ -133,7 +134,7 @@ function buildWaveSurface(data, type, definition) {
         }
     }
     for (let row = 0; row < divisions; row++) {
-        for (let column = 0; column <= divisions; column++) {
+        for (let column = 0; column < divisions; column++) {
             const a = row * (divisions + 1) + column;
             const b = a + 1;
             const c = a + divisions + 1;
@@ -392,7 +393,7 @@ async function initializeIntensityMap(container) {
             map.addControl(new SurfaceElevationSliderControl({
                 initialValue: 1,
                 onChange: (percentage) => {
-                    // Linear pure cut: 1% = full surface (0.004), 100% = top peak (0.99)
+                    // Linear pure cut: 1% = full surface (0.004), 100% = top peak (0.98)
                     currentElevationCutoff = percentage === 1 ? 0.004 : (percentage >= 100 ? 0.98 : percentage / 100);
                     waveLayer.setMinWeight(currentElevationCutoff);
                     hoverPoint.hide();

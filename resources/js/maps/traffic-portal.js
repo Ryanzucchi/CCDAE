@@ -31,15 +31,7 @@ function discreteGradient() {
 
 function heightScale(value) {
     const normalized = Math.max(0, Math.min(1, value));
-    const levels = 15;
-    const position = normalized * levels;
-    const level = Math.min(levels - 1, Math.floor(position));
-    const progress = position - level;
-    const maximum = (2 ** levels) - 1;
-    const lower = level === 0 ? 0 : ((2 ** level) - 1) / maximum;
-    const upper = ((2 ** (level + 1)) - 1) / maximum;
-    const smoothProgress = progress * progress * (3 - 2 * progress);
-    return lower + (upper - lower) * smoothProgress;
+    return normalized ** 1.6;
 }
 
 async function loadIntensityData(type, start, end, endpoint = '/api/transito/intensidade') {
@@ -158,7 +150,7 @@ function createShader(gl, type, source) {
 
 function createWaveLayer(id, surface) {
     return {
-        id, type: 'custom', renderingMode: '3d', minWeight: 0.025,
+        id, type: 'custom', renderingMode: '3d', minWeight: 0.035,
         setMinWeight(val) {
             this.minWeight = Math.max(0.001, Math.min(0.999, val));
             this.map?.triggerRepaint();
@@ -186,7 +178,7 @@ function createWaveLayer(id, surface) {
                 out vec4 outColor;
 
                 const vec3 u_palette[10] = vec3[10](
-                    vec3(0.090, 0.145, 0.329), // #172554 Azul marinho / base
+                    vec3(0.090, 0.145, 0.329), // #172554 Azul escuro
                     vec3(0.114, 0.306, 0.847), // #1d4ed8 Azul vivo
                     vec3(0.024, 0.714, 0.831), // #06b6d4 Ciano
                     vec3(0.063, 0.725, 0.506), // #10b981 Verde Esmeralda
@@ -199,7 +191,7 @@ function createWaveLayer(id, surface) {
                 );
 
                 vec3 getDynamicColor(float weight, float minWeight) {
-                    float range = max(0.015, 1.0 - minWeight);
+                    float range = max(0.005, 1.0 - minWeight);
                     float t = clamp((weight - minWeight) / range, 0.0, 0.999);
                     int band = int(floor(t * 10.0));
                     band = clamp(band, 0, 9);
@@ -209,9 +201,9 @@ function createWaveLayer(id, surface) {
                 void main() {
                     if (v_weight < u_min_weight) discard;
                     vec3 normal = normalize(v_normal);
-                    float light = 0.68 + 0.32 * abs(dot(normal, normalize(vec3(-0.45, 0.35, 0.82))));
-                    float fadeRange = max(0.015, (1.0 - u_min_weight) * 0.06);
-                    float alpha = smoothstep(u_min_weight, u_min_weight + fadeRange, v_weight) * 0.85;
+                    float light = 0.70 + 0.30 * abs(dot(normal, normalize(vec3(-0.45, 0.35, 0.82))));
+                    float fade = smoothstep(u_min_weight, u_min_weight + 0.015, v_weight);
+                    float alpha = fade * 0.88;
                     if (alpha <= 0.01) discard;
                     vec3 baseColor = getDynamicColor(v_weight, u_min_weight);
                     vec3 shadedColor = baseColor * light;
@@ -256,7 +248,7 @@ function createWaveLayer(id, surface) {
             this.projectionMatrix = args.defaultProjectionData.mainMatrix;
             gl.useProgram(this.program);
             gl.uniformMatrix4fv(this.matrixLocation, false, args.defaultProjectionData.mainMatrix);
-            gl.uniform1f(this.minWeightLocation, this.minWeight ?? 0.025);
+            gl.uniform1f(this.minWeightLocation, this.minWeight ?? 0.035);
             gl.bindVertexArray(this.vao);
             gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
             gl.bindVertexArray(null);
@@ -297,7 +289,7 @@ function createHoverPointLayer(id) {
                 uniform vec3 u_point;
                 void main() {
                     gl_Position = u_matrix * vec4(u_point, 1.0);
-                    gl_PointSize = 18.0;
+                    gl_PointSize = 20.0;
                 }`);
             const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
                 precision highp float;
@@ -305,10 +297,10 @@ function createHoverPointLayer(id) {
                 void main() {
                     float distanceFromCenter = length(gl_PointCoord - vec2(0.5));
                     if (distanceFromCenter > 0.5) discard;
-                    float ring = smoothstep(0.5, 0.40, distanceFromCenter) - smoothstep(0.35, 0.25, distanceFromCenter);
-                    float core = smoothstep(0.25, 0.12, distanceFromCenter);
+                    float ring = smoothstep(0.5, 0.38, distanceFromCenter) - smoothstep(0.32, 0.20, distanceFromCenter);
+                    float core = smoothstep(0.20, 0.08, distanceFromCenter);
                     vec3 col = mix(vec3(0.02, 0.71, 0.83), vec3(1.0, 1.0, 1.0), core);
-                    float alpha = max(ring, core);
+                    float alpha = max(ring * 0.9, core);
                     outColor = vec4(col * alpha, alpha);
                 }`);
             this.program = gl.createProgram();
@@ -408,12 +400,12 @@ async function initializeIntensityMap(container) {
                 : null;
             const maxWeight = maxCandidate ? maxCandidate.weight : 1.0;
 
-            let currentElevationCutoff = 0.025;
+            let currentElevationCutoff = 0.035;
 
             const applyElevationCutoff = (percentage) => {
                 const num = Math.max(1, Math.min(100, Math.round(percentage)));
                 if (num === 1) {
-                    currentElevationCutoff = 0.025;
+                    currentElevationCutoff = 0.035;
                     hoverPoint.hide();
                     tooltip.classList.add('hidden');
                     legendControl.updateRange(
@@ -422,19 +414,36 @@ async function initializeIntensityMap(container) {
                         '10 faixas relativas'
                     );
                 } else if (num === 100) {
-                    // Always guarantee the #1 peak point is visible and prominently highlighted
-                    currentElevationCutoff = Math.max(0.03, maxWeight - 0.025);
+                    currentElevationCutoff = Math.max(0.05, maxWeight - 0.015);
                     if (maxCandidate) {
                         hoverPoint.setPoint(maxCandidate.longitude, maxCandidate.latitude, maxCandidate.altitude);
+                        const projected = waveLayer.project(maxCandidate.coordinate, map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+                        if (projected) {
+                            tooltip.replaceChildren();
+                            const title = document.createElement('strong');
+                            const details = document.createElement('div');
+                            title.textContent = maxCandidate.feature.properties?.name || 'Ponto de Maior Altitude/Pico';
+                            details.className = 'mt-1 space-y-0.5';
+                            const rows = [
+                                `${definition.title}: ${maxCandidate.numericValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`,
+                                'Classificação: Topo Supremo',
+                                'Escala total na cidade: 100%',
+                            ];
+                            rows.forEach((text) => { const row = document.createElement('div'); row.textContent = text; details.appendChild(row); });
+                            tooltip.append(title, details);
+                            tooltip.style.left = `${projected.x + 14}px`;
+                            tooltip.style.top = `${projected.y + 14}px`;
+                            tooltip.classList.remove('hidden');
+                        }
                     }
                     legendControl.updateRange(
-                        formatScaleValue(rawMax * 0.98),
+                        formatScaleValue(rawMax * 0.99),
                         formatScaleValue(rawMax),
                         'Pico Máximo (100%)'
                     );
                 } else {
                     const progress = (num - 1) / 99;
-                    currentElevationCutoff = 0.025 + progress * (maxWeight - 0.045);
+                    currentElevationCutoff = 0.035 + progress * (maxWeight - 0.05);
                     hoverPoint.hide();
                     tooltip.classList.add('hidden');
                     const visibleMin = rawMin + rangeSpan * progress;

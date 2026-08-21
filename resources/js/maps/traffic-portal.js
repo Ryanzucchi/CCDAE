@@ -410,11 +410,11 @@ async function initializeIntensityMap(container) {
                 const surfaceWeight = interpolate(surface.spatialIndex, longitude, latitude, definition.influence);
                 const altitude = 5 + heightScale(surfaceWeight) * definition.altitude + 18;
                 const coordinate = maplibregl.MercatorCoordinate.fromLngLat([longitude, latitude], altitude);
-                return { feature, numericValue, weight, longitude, latitude, altitude, coordinate: [coordinate.x, coordinate.y, coordinate.z] };
+                return { feature, numericValue, weight, surfaceWeight, longitude, latitude, altitude, coordinate: [coordinate.x, coordinate.y, coordinate.z] };
             });
 
             const topCandidate = candidates.length
-                ? candidates.reduce((prev, curr) => (curr.weight > prev.weight ? curr : prev), candidates[0])
+                ? candidates.reduce((prev, curr) => (Math.max(curr.weight, curr.surfaceWeight) > Math.max(prev.weight, prev.surfaceWeight) ? curr : prev), candidates[0])
                 : null;
 
             let currentElevationCutoff = 0.004;
@@ -433,7 +433,6 @@ async function initializeIntensityMap(container) {
                             '10 faixas de 10%'
                         );
                     } else if (num === 100) {
-                        // At 100%, show exactly the peak summit and spotlight the #1 point
                         currentElevationCutoff = Math.max(0.005, maxSurfaceWeight - 0.015);
                         if (topCandidate) {
                             hoverPoint.setPoint(topCandidate.longitude, topCandidate.latitude, topCandidate.altitude);
@@ -461,9 +460,10 @@ async function initializeIntensityMap(container) {
 
             map.on('mousemove', (event) => {
                 let nearest = null;
-                let nearestDistance = 18;
+                let nearestDistance = 24;
                 for (const candidate of candidates) {
-                    if (candidate.weight < currentElevationCutoff) continue;
+                    const effectiveWeight = Math.max(candidate.weight, candidate.surfaceWeight ?? 0);
+                    if (effectiveWeight < currentElevationCutoff) continue;
                     const projected = waveLayer.project(candidate.coordinate, map.getCanvas().clientWidth, map.getCanvas().clientHeight);
                     if (!projected) continue;
                     const distance = Math.hypot(projected.x - event.point.x, projected.y - event.point.y);
@@ -473,18 +473,17 @@ async function initializeIntensityMap(container) {
                     }
                 }
                 if (!nearest) {
-                    if (map.getCanvas().style.cursor === 'pointer') {
-                        hoverPoint.hide();
-                        tooltip.classList.add('hidden');
-                        map.getCanvas().style.cursor = '';
-                    }
+                    hoverPoint.hide();
+                    tooltip.classList.add('hidden');
+                    map.getCanvas().style.cursor = '';
                     return;
                 }
                 hoverPoint.setPoint(nearest.longitude, nearest.latitude, nearest.altitude);
                 tooltip.replaceChildren();
                 const title = document.createElement('strong');
                 const details = document.createElement('div');
-                const relativeT = Math.min(0.999, Math.max(0, (nearest.weight - currentElevationCutoff) / Math.max(0.001, (maxSurfaceWeight - currentElevationCutoff))));
+                const effectiveWeight = Math.max(nearest.weight, nearest.surfaceWeight ?? 0);
+                const relativeT = Math.min(0.999, Math.max(0, (effectiveWeight - currentElevationCutoff) / Math.max(0.001, (maxSurfaceWeight - currentElevationCutoff))));
                 const activeBand = Math.min(9, Math.floor(relativeT * 10));
                 const classification = classificationFor(relativeT);
 
@@ -494,7 +493,7 @@ async function initializeIntensityMap(container) {
                     `${definition.title}: ${nearest.numericValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`,
                     `Classificação no corte: ${classification.label}`,
                     `Faixa de cor ativa: ${activeBand * 10}–${(activeBand + 1) * 10}%`,
-                    `Percentual geral na cidade: ${(nearest.weight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,
+                    `Percentual geral na cidade: ${(effectiveWeight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,
                 ];
                 if (Number(nearest.feature.properties?.streets) > 1) rows.push(`${nearest.feature.properties.streets} vias nesta área`);
                 rows.forEach((text) => { const row = document.createElement('div'); row.textContent = text; details.appendChild(row); });

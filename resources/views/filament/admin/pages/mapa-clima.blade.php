@@ -141,25 +141,25 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
                     <button type="button" @click="setMetric('temperatura')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'temperatura' ? 'active' : ''" :aria-pressed="metric === 'temperatura'">
-                        <x-heroicon-o-fire class="h-4 w-4" /> Temperatura (°C)
+                        <x-filament::icon icon="heroicon-o-fire" class="h-4 w-4" /> Temperatura (°C)
                     </button>
                     <button type="button" @click="setMetric('radiacao')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'radiacao' ? 'active' : ''" :aria-pressed="metric === 'radiacao'">
-                        <x-heroicon-o-sun class="h-4 w-4" /> Radiação solar (W/m²)
+                        <x-filament::icon icon="heroicon-o-sun" class="h-4 w-4" /> Radiação solar (W/m²)
                     </button>
                     <button type="button" @click="setMetric('vento')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'vento' ? 'active' : ''" :aria-pressed="metric === 'vento'">
-                        <x-heroicon-o-arrow-path class="h-4 w-4" /> Fluxo de ventos
+                        <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4" /> Fluxo de ventos
                     </button>
                     <button type="button" @click="setMetric('chuva')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'chuva' ? 'active' : ''" :aria-pressed="metric === 'chuva'">
-                        <x-heroicon-o-cloud class="h-4 w-4" /> Precipitação (mm)
+                        <x-filament::icon icon="heroicon-o-cloud" class="h-4 w-4" /> Precipitação (mm)
                     </button>
                     <button type="button" @click="setMetric('particulas')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'particulas' ? 'active' : ''" :aria-pressed="metric === 'particulas'">
-                        <x-heroicon-o-funnel class="h-4 w-4" /> Qualidade do ar (PM2.5)
+                        <x-filament::icon icon="heroicon-o-funnel" class="h-4 w-4" /> Qualidade do ar (PM2.5)
                     </button>
                     <button type="button" @click="setMetric('pressao')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'pressao' ? 'active' : ''" :aria-pressed="metric === 'pressao'">
-                        <x-heroicon-o-scale class="h-4 w-4" /> Pressão atmosférica (hPa)
+                        <x-filament::icon icon="heroicon-o-scale" class="h-4 w-4" /> Pressão atmosférica (hPa)
                     </button>
                     <button type="button" @click="setMetric('uv')" class="climate-btn px-3 py-1.5 rounded-md text-xs text-left flex items-center gap-2" :class="metric === 'uv' ? 'active' : ''" :aria-pressed="metric === 'uv'">
-                        <x-heroicon-o-sparkles class="h-4 w-4" /> Índice UV
+                        <x-filament::icon icon="heroicon-o-sparkles" class="h-4 w-4" /> Índice UV
                     </button>
                 </div>
             </div>
@@ -183,7 +183,7 @@
             <div class="ccdae-map-panel wind-summary" x-show="metric === 'vento'" x-transition style="position:absolute;z-index:9999;right:18px;top:18px;width:190px;padding:14px">
                 <div class="wind-summary-kicker" style="font-size:10px;text-transform:uppercase;letter-spacing:.12em">Campo de vento</div>
                 <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
-                    <div style="transform-origin:center" :style="`transform:rotate(${windSummary.direction}deg)`"><x-heroicon-o-arrow-up class="h-9 w-9" /></div>
+                    <div style="transform-origin:center" :style="`transform:rotate(${windSummary.direction}deg)`"><x-filament::icon icon="heroicon-o-arrow-up" class="h-9 w-9" /></div>
                     <div>
                         <div style="font-size:22px;font-weight:800" x-text="`${windSummary.speed} km/h`"></div>
                         <div class="wind-summary-detail" style="font-size:12px" x-text="`${windSummary.cardinal} · ${windSummary.description}`"></div>
@@ -201,7 +201,7 @@
                     </button>
                     <div class="timeline-heading">
                         <div class="timeline-title-row">
-                            <x-heroicon-o-clock />
+                            <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4" />
                             <span class="timeline-title">Histórico climático</span>
                         </div>
                         <div class="timeline-subtitle">Leituras das últimas 24 horas</div>

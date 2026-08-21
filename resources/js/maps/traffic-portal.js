@@ -112,14 +112,8 @@ function buildWaveSurface(data, type, definition) {
     const positions = [];
     const normals = [];
     const weights = [];
-    const colors = [];
     const indices = [];
     const spatialIndex = buildSpatialIndex(points, definition.influence);
-    const colorStops = COLOR_BANDS.map((color) => {
-        const value = Number.parseInt(color.slice(1), 16);
-        return [(value >> 16 & 255) / 255, (value >> 8 & 255) / 255, (value & 255) / 255];
-    });
-    const discreteColor = (value) => colorStops[colorBandFor(value)];
 
     for (let row = 0; row <= divisions; row++) {
         for (let column = 0; column <= divisions; column++) {
@@ -130,11 +124,10 @@ function buildWaveSurface(data, type, definition) {
             const coordinate = maplibregl.MercatorCoordinate.fromLngLat([longitude, latitude], 5 + relativeHeight * definition.altitude);
             positions.push(coordinate.x, coordinate.y, coordinate.z);
             weights.push(value);
-            colors.push(...discreteColor(value));
         }
     }
     for (let row = 0; row < divisions; row++) {
-        for (let column = 0; column < divisions; column++) {
+        for (let column = 0; column <= divisions; column++) {
             const a = row * (divisions + 1) + column;
             const b = a + 1;
             const c = a + divisions + 1;
@@ -163,7 +156,7 @@ function buildWaveSurface(data, type, definition) {
             normals.push(normal[0] / length, normal[1] / length, normal[2] / length);
         }
     }
-    return { positions, normals, colors, weights, indices, spatialIndex, definition };
+    return { positions, normals, weights, indices, spatialIndex, definition };
 }
 
 function createShader(gl, type, source) {
@@ -187,14 +180,11 @@ function createWaveLayer(id, surface) {
                 precision highp float;
                 uniform mat4 u_matrix;
                 in vec3 a_position;
-                in vec3 a_color;
                 in vec3 a_normal;
                 in float a_weight;
-                out vec3 v_color;
                 out vec3 v_normal;
                 out float v_weight;
                 void main() {
-                    v_color = a_color;
                     v_normal = a_normal;
                     v_weight = a_weight;
                     gl_Position = u_matrix * vec4(a_position, 1.0);
@@ -202,17 +192,36 @@ function createWaveLayer(id, surface) {
             const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
                 precision highp float;
                 uniform float u_min_weight;
-                in vec3 v_color;
                 in vec3 v_normal;
                 in float v_weight;
                 out vec4 outColor;
+
+                const vec3 u_palette[10] = vec3[10](
+                    vec3(0.090, 0.145, 0.329), // #172554 Azul escuro
+                    vec3(0.114, 0.306, 0.847), // #1d4ed8 Azul vivo
+                    vec3(0.024, 0.714, 0.831), // #06b6d4 Ciano
+                    vec3(0.063, 0.725, 0.506), // #10b981 Verde Esmeralda
+                    vec3(0.518, 0.800, 0.086), // #84cc16 Lima
+                    vec3(0.980, 0.800, 0.082), // #facc15 Amarelo
+                    vec3(0.976, 0.451, 0.086), // #f97316 Laranja
+                    vec3(0.937, 0.267, 0.267), // #ef4444 Vermelho
+                    vec3(0.635, 0.110, 0.686), // #a21caf Magenta
+                    vec3(0.224, 1.000, 0.078)  // #39ff14 Verde Neon Extremo
+                );
+
                 void main() {
                     if (v_weight < u_min_weight) discard;
                     vec3 normal = normalize(v_normal);
                     float light = 0.68 + 0.32 * abs(dot(normal, normalize(vec3(-0.45, 0.35, 0.82))));
-                    float alpha = smoothstep(u_min_weight, min(1.0, u_min_weight + 0.08), v_weight) * 0.82;
-                    if (alpha <= 0.0) discard;
-                    vec3 shadedColor = v_color * light;
+                    
+                    float fadeWidth = (u_min_weight <= 0.005) ? 0.08 : 0.015;
+                    float alpha = smoothstep(u_min_weight, u_min_weight + fadeWidth, v_weight) * 0.82;
+                    if (alpha <= 0.001) discard;
+
+                    float t = clamp((v_weight - u_min_weight) / max(0.001, 1.0 - u_min_weight), 0.0, 0.999);
+                    int band = clamp(int(floor(t * 10.0)), 0, 9);
+                    vec3 baseColor = u_palette[band];
+                    vec3 shadedColor = baseColor * light;
                     outColor = vec4(shadedColor * alpha, alpha);
                 }`);
             this.program = gl.createProgram();
@@ -238,12 +247,6 @@ function createWaveLayer(id, surface) {
             const normalLocation = gl.getAttribLocation(this.program, 'a_normal');
             gl.enableVertexAttribArray(normalLocation);
             gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
-            const colorBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(surface.colors), gl.STATIC_DRAW);
-            const colorLocation = gl.getAttribLocation(this.program, 'a_color');
-            gl.enableVertexAttribArray(colorLocation);
-            gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
             const weightBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, weightBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(surface.weights), gl.STATIC_DRAW);
@@ -370,14 +373,19 @@ async function initializeIntensityMap(container) {
                 return;
             }
             const formatScaleValue = (value) => Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-            map.addControl(new MapLegendControl({
+            const rawMin = Number(data.properties?.minimum ?? 0);
+            const rawMax = Number(data.properties?.maximum ?? 0);
+            const rangeSpan = Math.max(0.001, rawMax - rawMin);
+
+            const legendControl = new MapLegendControl({
                 title: definition.title,
                 subtitle: 'Intensidade relativa na cidade',
                 badge: '10 faixas de 10%',
-                minimum: formatScaleValue(data.properties?.minimum ?? 0),
-                maximum: formatScaleValue(data.properties?.maximum ?? 0),
+                minimum: formatScaleValue(rawMin),
+                maximum: formatScaleValue(rawMax),
                 gradient: discreteGradient(),
-            }), 'top-right');
+            });
+            map.addControl(legendControl, 'top-right');
 
             let currentElevationCutoff = 0.004;
             const surface = buildWaveSurface(data, type, definition);
@@ -393,11 +401,28 @@ async function initializeIntensityMap(container) {
             map.addControl(new SurfaceElevationSliderControl({
                 initialValue: 1,
                 onChange: (percentage) => {
-                    // Linear pure cut: 1% = full surface (0.004), 100% = top peak (0.98)
-                    currentElevationCutoff = percentage === 1 ? 0.004 : (percentage >= 100 ? 0.98 : percentage / 100);
+                    const num = Math.max(1, Math.min(100, Math.round(percentage)));
+                    if (num === 1) {
+                        currentElevationCutoff = 0.004;
+                        hoverPoint.hide();
+                        tooltip.classList.add('hidden');
+                        legendControl.updateRange(
+                            formatScaleValue(rawMin),
+                            formatScaleValue(rawMax),
+                            '10 faixas de 10%'
+                        );
+                    } else {
+                        currentElevationCutoff = num >= 100 ? 0.98 : (num / 100);
+                        hoverPoint.hide();
+                        tooltip.classList.add('hidden');
+                        const visibleMin = rawMin + rangeSpan * (num / 100);
+                        legendControl.updateRange(
+                            formatScaleValue(visibleMin),
+                            formatScaleValue(rawMax),
+                            num >= 100 ? 'Pico 100%' : `Escala ${num}% a 100%`
+                        );
+                    }
                     waveLayer.setMinWeight(currentElevationCutoff);
-                    hoverPoint.hide();
-                    tooltip.classList.add('hidden');
                 },
             }), 'top-right');
 
@@ -433,16 +458,17 @@ async function initializeIntensityMap(container) {
                 tooltip.replaceChildren();
                 const title = document.createElement('strong');
                 const details = document.createElement('div');
-                const classification = classificationFor(nearest.weight);
-                const colorBand = colorBandFor(nearest.weight);
+                const relativeT = Math.min(0.999, Math.max(0, (nearest.weight - currentElevationCutoff) / Math.max(0.001, (1.0 - currentElevationCutoff))));
+                const activeBand = Math.min(9, Math.floor(relativeT * 10));
+                const classification = classificationFor(relativeT);
+
                 title.textContent = nearest.feature.properties?.name || 'Local sem via identificada';
                 details.className = 'mt-1 space-y-0.5';
                 const rows = [
                     `${definition.title}: ${nearest.numericValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`,
-                    `Classificação: ${classification.label}`,
-                    `Nível exponencial: ${classification.level} de 15`,
-                    `Escala da cidade: ${(nearest.weight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,
-                    `Faixa de cor: ${colorBand * 10}–${(colorBand + 1) * 10}%`,
+                    `Classificação no corte: ${classification.label}`,
+                    `Faixa de cor ativa: ${activeBand * 10}–${(activeBand + 1) * 10}%`,
+                    `Percentual geral na cidade: ${(nearest.weight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,
                 ];
                 if (Number(nearest.feature.properties?.streets) > 1) rows.push(`${nearest.feature.properties.streets} vias nesta área`);
                 rows.forEach((text) => { const row = document.createElement('div'); row.textContent = text; details.appendChild(row); });

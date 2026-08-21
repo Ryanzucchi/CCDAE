@@ -376,10 +376,31 @@ async function initializeIntensityMap(container) {
                     : 'Nenhum dado disponível para este período.';
                 return;
             }
-            const formatScaleValue = (value) => Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-            const rawMin = Number(data.properties?.minimum ?? 0);
-            const rawMax = Number(data.properties?.maximum ?? 0);
-            const rangeSpan = Math.max(0.001, rawMax - rawMin);
+
+            const formatScaleValue = (value) => {
+                const num = Number(value);
+                if (!Number.isFinite(num)) return '0';
+                if (num === 0) return '0';
+                if (Math.abs(num) >= 100) return num.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                if (Math.abs(num) >= 1) return num.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+                return num.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+            };
+
+            const featureValues = (data.features || [])
+                .map((f) => Number(f.properties?.value))
+                .filter((v) => Number.isFinite(v));
+
+            let rawMin = Number(data.properties?.minimum);
+            let rawMax = Number(data.properties?.maximum);
+
+            if (!Number.isFinite(rawMin) || (rawMin === 0 && rawMax === 0 && featureValues.length > 0)) {
+                rawMin = featureValues.length ? Math.min(...featureValues) : 0;
+            }
+            if (!Number.isFinite(rawMax) || (rawMax === 0 && featureValues.length > 0)) {
+                rawMax = featureValues.length ? Math.max(...featureValues) : 0;
+            }
+
+            const rangeSpan = Math.max(0, rawMax - rawMin);
 
             const legendControl = new MapLegendControl({
                 title: definition.title,
@@ -438,7 +459,7 @@ async function initializeIntensityMap(container) {
                             hoverPoint.setPoint(topCandidate.longitude, topCandidate.latitude, topCandidate.altitude);
                         }
                         legendControl.updateRange(
-                            formatScaleValue(rawMax * 0.98),
+                            formatScaleValue(rawMax),
                             formatScaleValue(rawMax),
                             'Pico Máximo (100%)'
                         );
@@ -490,7 +511,7 @@ async function initializeIntensityMap(container) {
                 title.textContent = nearest.feature.properties?.name || 'Local sem via identificada';
                 details.className = 'mt-1 space-y-0.5';
                 const rows = [
-                    `${definition.title}: ${nearest.numericValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`,
+                    `${definition.title}: ${formatScaleValue(nearest.numericValue)}`,
                     `Classificação no corte: ${classification.label}`,
                     `Faixa de cor ativa: ${activeBand * 10}–${(activeBand + 1) * 10}%`,
                     `Percentual geral na cidade: ${(effectiveWeight * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`,

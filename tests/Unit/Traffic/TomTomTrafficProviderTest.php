@@ -3,11 +3,18 @@
 namespace Tests\Unit\Traffic;
 
 use App\Services\Traffic\TomTomTrafficProvider;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class TomTomTrafficProviderTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::forget('traffic:tomtom:circuit');
+    }
+
     public function test_returns_normalized_real_flow_when_configured(): void
     {
         config(['data_sources.traffic.tomtom_key' => 'test-key']);
@@ -25,5 +32,22 @@ class TomTomTrafficProviderTest extends TestCase
         Http::fake();
         $this->assertNull(app(TomTomTrafficProvider::class)->flow(-16.07, -57.68));
         Http::assertNothingSent();
+    }
+
+    public function test_opens_circuit_after_provider_rejects_request(): void
+    {
+        config([
+            'data_sources.traffic.tomtom_key' => 'test-key',
+            'data_sources.traffic.provider_cooldown_seconds' => 3600,
+        ]);
+        Http::fake(['api.tomtom.com/*' => Http::response(['error' => ['description' => 'No credits']], 403)]);
+
+        $provider = app(TomTomTrafficProvider::class);
+
+        $this->assertNull($provider->flow(-16.07, -57.68));
+        $this->assertFalse($provider->available());
+        $this->assertSame(403, $provider->status()['status']);
+        $this->assertNull($provider->flow(-16.07, -57.68));
+        Http::assertSentCount(1);
     }
 }

@@ -285,7 +285,8 @@
                         Force a criação de um Job na fila agora mesmo.<br>
                         Últimos registros gravados no DB:<br>
                         Clima: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_climate_record'] }}</strong><br>
-                        Trânsito: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_traffic_record'] }}</strong>
+                        Trânsito: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['last_traffic_record'] }}</strong><br>
+                        Provedor: <strong style="color: inherit; font-size: 0.875rem;">{{ $stats['traffic_provider_status'] }}</strong>
                     </p>
                     <button type="button" wire:click="runCollector" class="btn-custom" style="background: #2563eb;">
                         <x-filament::icon icon="heroicon-o-arrow-path" style="width: 1.25rem; height: 1.25rem; color: white;" />

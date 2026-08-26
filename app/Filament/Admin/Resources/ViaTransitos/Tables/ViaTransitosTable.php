@@ -19,6 +19,25 @@ class ViaTransitosTable
                     ->searchable(),
                 TextColumn::make('nome')
                     ->searchable(),
+                TextColumn::make('tipo')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('numero_faixas')
+                    ->label('Faixas')
+                    ->numeric()
+                    ->sortable(),
+                TextColumn::make('sentido')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('limite_velocidade')
+                    ->label('Limite km/h')
+                    ->numeric()
+                    ->sortable(),
+                TextColumn::make('estado_pavimento')
+                    ->label('Pavimento')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('inclinacao_pista')
+                    ->label('Inclinação %')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('nivel_congestionamento')
                     ->searchable(),
                 TextColumn::make('velocidade_media')

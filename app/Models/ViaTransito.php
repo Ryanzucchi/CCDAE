@@ -14,6 +14,7 @@ class ViaTransito extends Model
 
     protected $fillable = [
         'distrito_id',
+        'osm_way_id',
         'nome',
         'geojson',
         'nivel_congestionamento',

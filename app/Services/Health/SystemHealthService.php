@@ -2,6 +2,7 @@
 
 namespace App\Services\Health;
 
+use App\Services\Traffic\TomTomTrafficProvider;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -164,9 +165,10 @@ class SystemHealthService
 
         // Last Climate data record
         $lastClimateRecordText = 'Nenhum registro encontrado';
-        if (Schema::hasTable('temperatura_registrada')) {
+        $climateTable = $this->domainTable('temperatura_registrada', 'climate');
+        if ($climateTable !== null) {
             try {
-                $lastClimateRecord = DB::table('temperatura_registrada')
+                $lastClimateRecord = DB::table($climateTable)
                     ->where('timestamp', '<=', now()->endOfMinute())
                     ->latest('timestamp')
                     ->value('timestamp');
@@ -184,9 +186,10 @@ class SystemHealthService
 
         // Last Traffic data record
         $lastTrafficRecordText = 'Nenhum registro encontrado';
-        if (Schema::hasTable('registro_transitos')) {
+        $trafficTable = $this->domainTable('registro_transitos', 'mobility');
+        if ($trafficTable !== null) {
             try {
-                $lastTrafficRecord = DB::table('registro_transitos')->latest('timestamp')->value('timestamp');
+                $lastTrafficRecord = DB::table($trafficTable)->latest('timestamp')->value('timestamp');
                 if ($lastTrafficRecord) {
                     $lastTrafficRecordText = Carbon::parse($lastTrafficRecord)->format('d/m/Y H:i').' ('.Carbon::parse($lastTrafficRecord)->diffForHumans().')';
                     if (Carbon::parse($lastTrafficRecord)->diffInHours(now()) > 2) {
@@ -196,6 +199,18 @@ class SystemHealthService
             } catch (\Throwable) {
                 // Ignore query failure
             }
+        }
+
+        $trafficProvider = app(TomTomTrafficProvider::class)->status();
+        $trafficProviderStatusText = $trafficProvider['available']
+            ? 'TomTom disponível'
+            : ($trafficProvider['reason'] === 'not_configured'
+                ? 'TomTom não configurada; usando fallback CCDAE'
+                : ($trafficProvider['reason'] === 'provider_unreachable'
+                    ? 'TomTom inacessível; usando fallback CCDAE'
+                    : 'TomTom recusou a coleta (HTTP '.($trafficProvider['status'] ?? 'desconhecido').'); usando fallback CCDAE'));
+        if (! $trafficProvider['available']) {
+            $bottlenecks[] = ['type' => 'warning', 'msg' => $trafficProviderStatusText];
         }
 
         // Worker Log Output
@@ -227,9 +242,21 @@ class SystemHealthService
             'disk_used_percent' => $diskUsedPercent,
             'last_climate_record' => $lastClimateRecordText,
             'last_traffic_record' => $lastTrafficRecordText,
+            'traffic_provider_available' => $trafficProvider['available'],
+            'traffic_provider_status' => $trafficProviderStatusText,
             'worker_logs' => $workerLogs,
             'queue_driver' => config('queue.default'),
             'bottlenecks' => $bottlenecks,
         ];
+    }
+
+    private function domainTable(string $table, string $schema): ?string
+    {
+        $qualified = $schema.'.'.$table;
+        if (DB::getDriverName() === 'pgsql' && Schema::hasTable($qualified)) {
+            return $qualified;
+        }
+
+        return Schema::hasTable($table) ? $table : null;
     }
 }

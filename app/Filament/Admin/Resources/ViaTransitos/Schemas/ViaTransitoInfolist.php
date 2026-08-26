@@ -16,6 +16,15 @@ class ViaTransitoInfolist
                     ->placeholder('-'),
                 TextEntry::make('nome')
                     ->placeholder('-'),
+                TextEntry::make('osm_way_id')
+                    ->label('ID OSM')
+                    ->placeholder('-'),
+                TextEntry::make('tipo')->placeholder('-'),
+                TextEntry::make('numero_faixas')->label('Faixas')->placeholder('-'),
+                TextEntry::make('sentido')->placeholder('-'),
+                TextEntry::make('limite_velocidade')->label('Limite (km/h)')->placeholder('-'),
+                TextEntry::make('estado_pavimento')->label('Pavimento')->placeholder('-'),
+                TextEntry::make('inclinacao_pista')->label('Inclinação (%)')->placeholder('Não informada'),
                 TextEntry::make('nivel_congestionamento'),
                 TextEntry::make('velocidade_media')
                     ->numeric()

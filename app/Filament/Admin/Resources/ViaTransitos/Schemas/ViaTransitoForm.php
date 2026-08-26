@@ -17,6 +17,43 @@ class ViaTransitoForm
                     ->relationship('distrito', 'id'),
                 TextInput::make('nome'),
                 TextInput::make('geojson'),
+                TextInput::make('osm_way_id')
+                    ->label('ID da via no OpenStreetMap')
+                    ->disabled(),
+                Select::make('tipo')
+                    ->options([
+                        'trunk' => 'Rodovia / via expressa',
+                        'primary' => 'Via primária',
+                        'secondary' => 'Via secundária',
+                        'tertiary' => 'Via terciária',
+                        'residential' => 'Via residencial',
+                    ]),
+                TextInput::make('numero_faixas')
+                    ->label('Número de faixas')
+                    ->numeric()
+                    ->minValue(1),
+                Select::make('sentido')
+                    ->options(['unica' => 'Mão única', 'dupla' => 'Mão dupla']),
+                TextInput::make('limite_velocidade')
+                    ->label('Limite de velocidade (km/h)')
+                    ->numeric()
+                    ->minValue(1),
+                Select::make('estado_pavimento')
+                    ->label('Pavimento / conservação')
+                    ->options([
+                        'bom' => 'Bom',
+                        'regular' => 'Regular',
+                        'ruim' => 'Ruim',
+                        'asfalto' => 'Asfalto',
+                        'concreto' => 'Concreto',
+                        'paver' => 'Paver / paralelepípedo',
+                        'cascalho' => 'Cascalho',
+                        'terra' => 'Terra',
+                        'desconhecido' => 'Desconhecido',
+                    ]),
+                TextInput::make('inclinacao_pista')
+                    ->label('Inclinação da pista (%)')
+                    ->numeric(),
                 TextInput::make('nivel_congestionamento')
                     ->required()
                     ->default('livre'),

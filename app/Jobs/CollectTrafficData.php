@@ -17,7 +17,7 @@ class CollectTrafficData implements ShouldQueue
 
     public function handle(TomTomTrafficProvider $provider, TrafficSimulationService $simulationService): void
     {
-        Log::info('Job de coleta de trânsito iniciado', ['fonte' => $provider->configured() ? 'TomTom Traffic' : 'simulação identificada']);
+        Log::info('Job de coleta de trânsito iniciado', ['fonte' => $provider->available() ? 'TomTom Traffic' : 'simulação identificada']);
 
         // Processamos em lotes
         $processed = 0;

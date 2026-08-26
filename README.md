@@ -27,8 +27,8 @@ O projeto é concebido em formato modular, garantindo expansão contínua para a
 - [x] **Módulo de Distritos**: Gestão territorial inteligente com geração dinâmica de fronteiras via Diagramas de Voronoi e renderização de alta performance. *(Concluído)*
 - [X] **Mapeamento de Infraestrutura**: Cadastro e visualização espacial de postes, antenas, centrais de distribuição e cabeamentos. *(Concluído)*
 - [ ] **Mapeamento de Desgaste**: Análise analítica e visual do estado de conservação física dos ativos mapeados. *(Em andamento)*
-- [ ] **Mapeamento de Fios**: Rastreamento da teia de cabeamentos ópticos e elétricos cruzando os distritos. *(Em breve)*
-- [ ] **Mapeamento de Trânsito**: Integração com fluxos viários para entender impactos logísticos e gargalos de manutenção. *(Em breve)*
+- [x] **Mapeamento de Fios**: Rastreamento geoespacial de cabeamentos ópticos e elétricos, postes, centrais e equipamentos. *(Concluído)*
+- [x] **Mapeamento de Trânsito**: Malha viária OSM, fluxo TomTom com fallback identificado, histórico de 24 horas e mapas analíticos. *(Concluído)*
 - [ ] **Sugestões de Melhorias**: Sistema automatizado (ou manual) para propor *upgrades* estruturais baseado na inteligência dos dados coletados. *(Em breve)*
 - [ ] **Risco por Envelhecimento**: Previsão de falhas baseada em algoritmos preditivos sobre a vida útil e exposição climática da infraestrutura. *(Em breve)*
 
@@ -49,9 +49,17 @@ A aplicação utiliza uma stack moderna focada em escalabilidade para grande vol
 - **Tailwind CSS**: Estilização utilitária e design system da aplicação.
 
 ### Inteligência Geoespacial
-- **Leaflet.js**: Motor principal de renderização de mapas, usando `Canvas` puro para altíssima performance visual.
-- **GeoJSON**: Padrão de dados para transporte e armazenamento estruturado de polígonos no banco.
-- **Turf.js (Voronoi)**: Algoritmo matemático avançado utilizado no frontend para *geração dinâmica de fronteiras*. Quando um distrito possui apenas coordenadas de centro (lat/lng), o Turf calcula as áreas adjacentes (Diagrama de Voronoi) e desenha "fronteiras inteligentes" que não se sobrepõem, parecendo um quebra-cabeça perfeito em tempo real.
+- **MapLibre GL JS**: motor principal dos mapas 2D e analíticos, com renderização WebGL e `feature-state` para dados temporais.
+- **Martin + PostGIS**: publicação de camadas vetoriais MVT diretamente das geometrias nativas do PostgreSQL.
+- **GeoJSON e Turf.js**: contratos de intercâmbio, amostragem espacial e cálculos geográficos no cliente.
+- **TimescaleDB**: armazenamento do histórico climático e de trânsito em séries temporais.
+
+### Fontes e proveniência
+
+- O fluxo real de trânsito usa TomTom Traffic Flow (`currentSpeed`, `freeFlowSpeed` e `confidence`). Quando a API não está configurada ou indisponível, o sistema grava explicitamente a origem como fallback simulado.
+- A malha viária, edificações e antenas podem ser sincronizadas de fontes abertas, incluindo OpenStreetMap/Overpass.
+- Os registros climáticos e de trânsito carregam campos de origem para distinguir medições externas de estimativas do CCDAE.
+- `php artisan transito:sync-real` enriquece as vias sem apagar o histórico. Tags ausentes de faixas e velocidade recebem valores inferidos por classe viária e ficam identificadas em `infraestrutura_json.osm.inferred_fields`; inclinação permanece sem valor quando não há medição no OSM.
 
 ---
 
@@ -108,27 +116,26 @@ Em distritos onde as fronteiras exatas (`geojson`) não foram cadastradas, o fro
    composer install
    ```
 
-3. **Inicie os containers (Sail / Docker):**
+3. **Inicie os containers:**
    ```bash
-   ./vendor/bin/sail up -d
+   docker compose up -d --build
    ```
 
 4. **Prepare o ambiente e o Banco de Dados:**
    Copie o `.env.example` para `.env` (se já não estiver feito), configure e suba as migrações:
    ```bash
-   ./vendor/bin/sail artisan key:generate
-   ./vendor/bin/sail artisan migrate
+   docker compose exec phpccdae php artisan key:generate
+   docker compose exec phpccdae php artisan migrate
    ```
 
-5. **Inicie o servidor de compilação Front-end:**
+5. **Compile o frontend:**
    ```bash
    npm install
-   npm run dev
+   npm run build
    ```
 
 6. **Acesso:**
-   Acesse o painel administratido do CCDAE pelo navegador:
-   `http://localhost` (ou o domínio mapeado localmente).
+   Acesse `http://localhost:8787` (ou o domínio configurado no ambiente).
 
 ---
 

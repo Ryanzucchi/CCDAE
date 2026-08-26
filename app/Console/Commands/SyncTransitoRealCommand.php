@@ -4,231 +4,279 @@ namespace App\Console\Commands;
 
 use App\Models\Distrito;
 use App\Models\ViaTransito;
+use App\Services\Traffic\OsmRoadAttributeMapper;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
 class SyncTransitoRealCommand extends Command
 {
-    protected $signature = 'transito:sync-real';
+    protected $signature = 'transito:sync-real {--source= : Caminho de uma resposta JSON previamente obtida da Overpass}';
 
-    protected $description = 'Busca vias reais de Cáceres via Overpass API (OpenStreetMap) para desenhar o trânsito com precisão.';
+    protected $description = 'Sincroniza e enriquece vias de Cáceres via OpenStreetMap sem apagar históricos de trânsito.';
 
-    public function handle()
+    public function handle(OsmRoadAttributeMapper $attributeMapper): int
     {
-        $this->info('Iniciando sincronização de vias reais via OpenStreetMap (Overpass API)...');
+        $this->info('Iniciando sincronização segura de vias via OpenStreetMap (Overpass API)...');
 
-        $distritos = Distrito::all();
-        $lats = [];
-        $lons = [];
-
-        foreach ($distritos as $d) {
-            $lat = $d->latitude;
-            $lon = $d->longitude;
-
-            if (is_null($lat) || is_null($lon)) {
-                $geo = $d->geojson;
-                if ($geo && isset($geo['type'])) {
-                    if ($geo['type'] === 'Polygon' && isset($geo['coordinates'][0][0])) {
-                        $lon = $geo['coordinates'][0][0][0];
-                        $lat = $geo['coordinates'][0][0][1];
-                    } elseif ($geo['type'] === 'MultiPolygon' && isset($geo['coordinates'][0][0][0])) {
-                        $lon = $geo['coordinates'][0][0][0][0];
-                        $lat = $geo['coordinates'][0][0][0][1];
-                    }
-                }
-            }
-
-            if (! is_null($lat) && ! is_null($lon)) {
-                $d->latitude = (float) $lat;
-                $d->longitude = (float) $lon;
-                $lats[] = (float) $lat;
-                $lons[] = (float) $lon;
-            }
+        $districts = Distrito::all();
+        [$bbox, $districtPoints] = $this->boundingBox($districts);
+        $elements = $this->option('source')
+            ? $this->loadRoadsFromFile((string) $this->option('source'))
+            : $this->fetchRoads($bbox);
+        if ($elements === null) {
+            return self::FAILURE;
         }
 
-        // Bounding box aproximado de Cáceres MT focado nos distritos (aprox)
-        // bbox: min_lon, min_lat, max_lon, max_lat
-        $minLat = (! empty($lats) ? min($lats) : -16.07) - 0.05;
-        $maxLat = (! empty($lats) ? max($lats) : -16.07) + 0.05;
-        $minLon = (! empty($lons) ? min($lons) : -57.68) - 0.05;
-        $maxLon = (! empty($lons) ? max($lons) : -57.68) + 0.05;
+        $this->info('Vias encontradas no OSM: '.count($elements));
 
-        $bbox = "{$minLat},{$minLon},{$maxLat},{$maxLon}";
+        $existingRoads = ViaTransito::query()->get();
+        $byOsmId = $existingRoads->whereNotNull('osm_way_id')->keyBy(fn (ViaTransito $road) => (string) $road->osm_way_id);
+        $byGeometry = $existingRoads->filter(fn (ViaTransito $road) => filled($road->geojson))
+            ->keyBy(fn (ViaTransito $road) => $this->geometryFingerprint($road->geojson));
 
-        // Consulta Overpass para pegar principais vias e ruas residenciais
-        $query = "[out:json][timeout:60];
-        (
-          way[\"highway\"~\"primary|secondary|tertiary|residential|trunk\"]({$bbox});
-        );
-        out geom;";
+        $updated = 0;
+        $inserted = 0;
+        $unchanged = 0;
 
-        try {
-            $endpoints = [
-                'https://overpass-api.de/api/interpreter',
-                'https://overpass.kumi.systems/api/interpreter',
-                'https://z.overpass-api.de/api/interpreter',
-            ];
+        $bar = $this->output->createProgressBar(count($elements));
+        $bar->start();
 
-            $response = null;
-            $success = false;
-
-            foreach ($endpoints as $url) {
-                $this->info("Tentando Overpass API: {$url}...");
-                try {
-                    $response = Http::timeout(40)->withHeaders([
-                        'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
-                        'Accept' => '*/*',
-                    ])->asForm()->post($url, [
-                        'data' => $query,
-                    ]);
-
-                    if ($response->successful()) {
-                        $success = true;
-                        break;
-                    } else {
-                        $this->warn("Erro no endpoint {$url}: ".$response->status());
-                    }
-                } catch (\Throwable $t) {
-                    $this->warn("Falha de conexão com {$url}: ".$t->getMessage());
-                }
+        foreach ($elements as $element) {
+            $bar->advance();
+            if (($element['type'] ?? null) !== 'way' || count($element['geometry'] ?? []) < 2) {
+                continue;
             }
 
-            if (! $success || is_null($response)) {
-                $this->error('Todos os endpoints do Overpass API falharam.');
+            $geometry = $this->geometry($element['geometry']);
+            $osmId = (string) $element['id'];
+            $road = $byOsmId->get($osmId) ?? $byGeometry->get($this->geometryFingerprint($geometry));
+            $tags = $element['tags'] ?? [];
+            $attributes = $attributeMapper->map($tags);
 
-                return;
-            }
-
-            $data = $response->json();
-
-            if (! isset($data['elements'])) {
-                $this->error('Nenhum dado retornado da API.');
-
-                return;
-            }
-
-            $elements = $data['elements'];
-            $this->info('Vias encontradas: '.count($elements));
-
-            // Limpar vias antigas geradas randomicamente
-            ViaTransito::truncate();
-
-            $inseridos = 0;
-            $recordsBuffer = [];
-
-            $bar = $this->output->createProgressBar(count($elements));
-            $bar->start();
-
-            foreach ($elements as $el) {
-                if ($el['type'] !== 'way' || ! isset($el['geometry'])) {
-                    continue;
-                }
-
-                $coords = [];
-                $midPoint = null;
-                $idx = 0;
-                $midIdx = (int) floor(count($el['geometry']) / 2);
-
-                foreach ($el['geometry'] as $geo) {
-                    $coords[] = [$geo['lon'], $geo['lat']];
-                    if ($idx === $midIdx) {
-                        $midPoint = ['lat' => $geo['lat'], 'lon' => $geo['lon']];
-                    }
-                    $idx++;
-                }
-
-                if (count($coords) < 2 || ! $midPoint) {
-                    continue;
-                }
-
-                $geojson = [
-                    'type' => 'LineString',
-                    'coordinates' => $coords,
-                ];
-
-                $nome = $el['tags']['name'] ?? 'Via Não Nomeada';
-
-                // Encontrar distrito mais proximo
-                $closestDistritoId = null;
-                $minDist = PHP_FLOAT_MAX;
-
-                foreach ($distritos as $d) {
-                    // Calculo rudimentar de distancia Euclidiana
-                    $dist = pow($d->latitude - $midPoint['lat'], 2) + pow($d->longitude - $midPoint['lon'], 2);
-                    if ($dist < $minDist) {
-                        $minDist = $dist;
-                        $closestDistritoId = $d->id;
-                    }
-                }
-
-                // Gerar nivel de congestionamento e velocidade (simulação baseada no tipo de via)
-                $tipo = $el['tags']['highway'] ?? 'residential';
-
-                $nivel = 'livre';
-                if (in_array($tipo, ['primary', 'trunk'])) {
-                    $nivel = collect(['livre', 'moderado', 'moderado', 'intenso', 'parado'])->random();
-                } elseif (in_array($tipo, ['secondary'])) {
-                    $nivel = collect(['livre', 'livre', 'moderado', 'intenso'])->random();
+            if ($road) {
+                if ($this->enrichExistingRoad($road, $osmId, $tags, $attributes)) {
+                    $updated++;
                 } else {
-                    $nivel = collect(['livre', 'livre', 'livre', 'livre', 'moderado'])->random();
+                    $unchanged++;
                 }
 
-                $velocidade = 0;
-                if ($nivel == 'livre') {
-                    $velocidade = rand(40, 60);
-                }
-                if ($nivel == 'moderado') {
-                    $velocidade = rand(20, 40);
-                }
-                if ($nivel == 'intenso') {
-                    $velocidade = rand(10, 20);
-                }
-                if ($nivel == 'parado') {
-                    $velocidade = rand(0, 5);
-                }
-
-                $impacto = 'baixo';
-                if ($nivel == 'intenso') {
-                    $impacto = 'medio';
-                }
-                if ($nivel == 'parado') {
-                    $impacto = 'alto';
-                }
-
-                $recordsBuffer[] = [
-                    'distrito_id' => $closestDistritoId,
-                    'nome' => $nome,
-                    'geojson' => json_encode($geojson),
-                    'nivel_congestionamento' => $nivel,
-                    'velocidade_media' => $velocidade,
-                    'volume_veiculos' => rand(100, 2000),
-                    'impacto_manutencao' => $impacto,
-                    'ultima_atualizacao' => now(),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-
-                if (count($recordsBuffer) >= 200) {
-                    ViaTransito::insert($recordsBuffer);
-                    $inseridos += count($recordsBuffer);
-                    $recordsBuffer = [];
-                }
-
-                $bar->advance();
+                continue;
             }
 
-            if (! empty($recordsBuffer)) {
-                ViaTransito::insert($recordsBuffer);
-                $inseridos += count($recordsBuffer);
-                $recordsBuffer = [];
-            }
+            $midpoint = $element['geometry'][(int) floor(count($element['geometry']) / 2)];
+            $inferred = $attributes['_inferred'];
+            unset($attributes['_inferred']);
 
-            $bar->finish();
-            $this->newLine();
-            $this->info("Importação concluída! $inseridos vias reais inseridas no mapa.");
-
-        } catch (\Exception $e) {
-            $this->error('Exceção: '.$e->getMessage());
+            ViaTransito::query()->create([
+                'osm_way_id' => $osmId,
+                'distrito_id' => $this->closestDistrictId($districtPoints, $midpoint),
+                'nome' => $tags['name'] ?? 'Via Não Nomeada',
+                'geojson' => $geometry,
+                ...$attributes,
+                'nivel_congestionamento' => 'livre',
+                'velocidade_media' => $attributes['limite_velocidade'],
+                'volume_veiculos' => null,
+                'impacto_manutencao' => 'baixo',
+                'ultima_atualizacao' => now(),
+                'infraestrutura_json' => $this->osmMetadata($osmId, $tags, $inferred),
+            ]);
+            $inserted++;
         }
+
+        $bar->finish();
+        $this->newLine();
+        $this->info("Sincronização concluída: {$updated} vias enriquecidas, {$inserted} inseridas e {$unchanged} já atualizadas.");
+
+        return self::SUCCESS;
+    }
+
+    private function enrichExistingRoad(ViaTransito $road, string $osmId, array $tags, array $attributes): bool
+    {
+        $inferred = $attributes['_inferred'];
+        unset($attributes['_inferred']);
+
+        $infrastructure = is_array($road->infraestrutura_json) ? $road->infraestrutura_json : [];
+        $previouslyInferred = $infrastructure['osm']['inferred_fields'] ?? [];
+        $updates = [];
+
+        foreach ($attributes as $field => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $current = $road->{$field};
+            $isMissing = $current === null || (is_string($current) && trim($current) === '');
+            $nowExplicit = in_array($field, $previouslyInferred, true) && ! in_array($field, $inferred, true);
+            if ($isMissing || $nowExplicit) {
+                $updates[$field] = $value;
+            }
+        }
+
+        if (! filled($road->osm_way_id)) {
+            $updates['osm_way_id'] = $osmId;
+        }
+        if ((! filled($road->nome) || $road->nome === 'Via Não Nomeada') && filled($tags['name'] ?? null)) {
+            $updates['nome'] = $tags['name'];
+        }
+
+        $newOsmMetadata = $this->osmMetadata($osmId, $tags, $inferred)['osm'];
+        $previousOsmMetadata = $infrastructure['osm'] ?? null;
+        if (is_array($previousOsmMetadata)
+            && ($previousOsmMetadata['way_id'] ?? null) === $newOsmMetadata['way_id']
+            && ($previousOsmMetadata['tags'] ?? []) == $newOsmMetadata['tags']
+            && ($previousOsmMetadata['inferred_fields'] ?? []) == $newOsmMetadata['inferred_fields']) {
+            $newOsmMetadata = $previousOsmMetadata;
+        }
+        $infrastructure['osm'] = $newOsmMetadata;
+        $updates['infraestrutura_json'] = $infrastructure;
+
+        $road->fill($updates);
+        if (! $road->isDirty()) {
+            return false;
+        }
+
+        $road->save();
+
+        return true;
+    }
+
+    private function osmMetadata(string $osmId, array $tags, array $inferred): array
+    {
+        $relevantTags = array_intersect_key($tags, array_flip([
+            'highway', 'lanes', 'lanes:forward', 'lanes:backward', 'oneway', 'junction',
+            'maxspeed', 'surface', 'smoothness', 'incline', 'name',
+        ]));
+
+        return ['osm' => [
+            'way_id' => $osmId,
+            'tags' => $relevantTags,
+            'inferred_fields' => array_values($inferred),
+            'enriched_at' => now()->toIso8601String(),
+        ]];
+    }
+
+    private function fetchRoads(string $bbox): ?array
+    {
+        $query = "[out:json][timeout:60];(way[\"highway\"~\"primary|secondary|tertiary|residential|trunk\"]({$bbox}););out geom;";
+        $endpoints = [
+            'https://overpass-api.de/api/interpreter',
+            'https://overpass.kumi.systems/api/interpreter',
+            'https://z.overpass-api.de/api/interpreter',
+        ];
+
+        foreach ($endpoints as $url) {
+            $this->line("Tentando Overpass API: {$url}...");
+            try {
+                $response = Http::timeout(90)->withHeaders([
+                    'User-Agent' => 'CCDAE/1.0 (Contact: admin@example.com)',
+                    'Accept' => '*/*',
+                ])->get($url, ['data' => $query]);
+                if ($response->successful() && is_array($response->json('elements'))) {
+                    return $response->json('elements');
+                }
+
+                $this->warn("Erro no endpoint {$url}: ".$response->status());
+            } catch (\Throwable $exception) {
+                $this->warn("Falha de conexão com {$url}: ".$exception->getMessage());
+            }
+        }
+
+        $this->error('Todos os endpoints do Overpass API falharam. Nenhuma via foi alterada.');
+
+        return null;
+    }
+
+    private function loadRoadsFromFile(string $path): ?array
+    {
+        if (! is_file($path) || ! is_readable($path)) {
+            $this->error("Arquivo Overpass não encontrado ou sem permissão de leitura: {$path}");
+
+            return null;
+        }
+
+        $contents = file_get_contents($path);
+        $elements = $contents !== false ? json_decode($contents, true)['elements'] ?? null : null;
+        if (! is_array($elements)) {
+            $this->error("Arquivo Overpass inválido: {$path}");
+
+            return null;
+        }
+
+        $this->line("Usando resposta Overpass local: {$path}");
+
+        return $elements;
+    }
+
+    private function boundingBox($districts): array
+    {
+        $points = [];
+        foreach ($districts as $district) {
+            $latitude = $district->latitude;
+            $longitude = $district->longitude;
+            $geometry = $district->geojson;
+
+            if (($latitude === null || $longitude === null) && is_array($geometry)) {
+                $coordinate = match ($geometry['type'] ?? null) {
+                    'Polygon' => $geometry['coordinates'][0][0] ?? null,
+                    'MultiPolygon' => $geometry['coordinates'][0][0][0] ?? null,
+                    default => null,
+                };
+                if (is_array($coordinate)) {
+                    [$longitude, $latitude] = $coordinate;
+                }
+            }
+
+            if ($latitude !== null && $longitude !== null) {
+                $points[] = ['id' => $district->id, 'lat' => (float) $latitude, 'lon' => (float) $longitude];
+            }
+        }
+
+        $latitudes = array_column($points, 'lat') ?: [-16.07];
+        $longitudes = array_column($points, 'lon') ?: [-57.68];
+        $bbox = (min($latitudes) - 0.05).','.(min($longitudes) - 0.05).','
+            .(max($latitudes) + 0.05).','.(max($longitudes) + 0.05);
+
+        return [$bbox, $points];
+    }
+
+    private function closestDistrictId(array $districts, array $point): ?int
+    {
+        $closestId = null;
+        $minimumDistance = PHP_FLOAT_MAX;
+        foreach ($districts as $district) {
+            $distance = ($district['lat'] - $point['lat']) ** 2 + ($district['lon'] - $point['lon']) ** 2;
+            if ($distance < $minimumDistance) {
+                $minimumDistance = $distance;
+                $closestId = $district['id'];
+            }
+        }
+
+        return $closestId;
+    }
+
+    private function geometry(array $points): array
+    {
+        return [
+            'type' => 'LineString',
+            'coordinates' => array_map(fn (array $point) => [(float) $point['lon'], (float) $point['lat']], $points),
+        ];
+    }
+
+    private function geometryFingerprint(mixed $geometry): string
+    {
+        if (is_string($geometry)) {
+            $geometry = json_decode($geometry, true);
+        }
+        if (($geometry['type'] ?? null) === 'Feature') {
+            $geometry = $geometry['geometry'] ?? [];
+        }
+
+        $coordinates = $geometry['coordinates'] ?? [];
+        $normalized = array_map(
+            fn (array $point) => [round((float) $point[0], 7), round((float) $point[1], 7)],
+            $coordinates,
+        );
+
+        return hash('sha256', json_encode($normalized));
     }
 }

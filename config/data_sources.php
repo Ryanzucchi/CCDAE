@@ -10,6 +10,7 @@ return [
         'provider' => env('TRAFFIC_DATA_PROVIDER', 'tomtom'),
         'tomtom_key' => env('TOMTOM_TRAFFIC_API_KEY'),
         'timeout' => (int) env('TRAFFIC_API_TIMEOUT', 10),
+        'provider_cooldown_seconds' => (int) env('TRAFFIC_PROVIDER_COOLDOWN_SECONDS', 3600),
         'max_segments_per_run' => (int) env('TRAFFIC_MAX_SEGMENTS_PER_RUN', 250),
     ],
 ];

@@ -32,7 +32,7 @@ class MapaTransito extends Page
     public function getViasProperty()
     {
         return ViaTransito::when($this->distrito_id, fn ($q) => $q->where('distrito_id', $this->distrito_id))
-            ->get(['id', 'nome', 'geojson', 'nivel_congestionamento', 'velocidade_media', 'impacto_manutencao'])
+            ->get(['id', 'nome', 'geojson', 'nivel_congestionamento', 'velocidade_media', 'impacto_manutencao', 'direcao_fluxo'])
             ->toArray();
     }
 

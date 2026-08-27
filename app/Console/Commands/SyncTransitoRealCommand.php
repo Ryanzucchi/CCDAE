@@ -107,7 +107,8 @@ class SyncTransitoRealCommand extends Command
             $current = $road->{$field};
             $isMissing = $current === null || (is_string($current) && trim($current) === '');
             $nowExplicit = in_array($field, $previouslyInferred, true) && ! in_array($field, $inferred, true);
-            if ($isMissing || $nowExplicit) {
+            $isOsmFlowField = in_array($field, ['sentido', 'direcao_fluxo'], true);
+            if ($isMissing || $nowExplicit || ($isOsmFlowField && $current !== $value)) {
                 $updates[$field] = $value;
             }
         }

@@ -108,6 +108,7 @@
                 <div><span style="background:#eab308"></span>Moderado (20–40 km/h)</div>
                 <div><span style="background:#f97316"></span>Intenso (10–20 km/h)</div>
                 <div><span style="background:#ef4444"></span>Parado (&lt; 10 km/h)</div>
+                <div><span style="background:#111827"></span>→ fluxo da via · ↔ mão dupla</div>
                 <div class="opacity-60"><span style="background:#6b7280"></span>Fronteira do distrito</div>
             </div>
         </div>

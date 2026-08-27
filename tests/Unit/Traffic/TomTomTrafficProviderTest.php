@@ -50,4 +50,22 @@ class TomTomTrafficProviderTest extends TestCase
         $this->assertNull($provider->flow(-16.07, -57.68));
         Http::assertSentCount(1);
     }
+
+    public function test_fetches_absolute_and_relative_vector_tiles(): void
+    {
+        config(['data_sources.traffic.tomtom_key' => 'test-key']);
+        Http::fake([
+            '*flow/absolute/*' => Http::response('absolute-pbf', 200, ['Content-Type' => 'application/x-protobuf']),
+            '*flow/relative/*' => Http::response('relative-pbf', 200, ['Content-Type' => 'application/x-protobuf']),
+        ]);
+
+        $tiles = app(TomTomTrafficProvider::class)->vectorFlowTiles([
+            ['id' => 7, 'zoom' => 13, 'x' => 2783, 'y' => 4467],
+        ]);
+
+        $this->assertSame('absolute-pbf', $tiles[7]['absolute']);
+        $this->assertSame('relative-pbf', $tiles[7]['relative']);
+        $this->assertSame(2, $tiles[7]['successful']);
+        Http::assertSentCount(2);
+    }
 }

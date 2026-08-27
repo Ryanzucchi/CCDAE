@@ -28,6 +28,13 @@ class ViaTransitosTable
                     ->sortable(),
                 TextColumn::make('sentido')
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('direcao_fluxo')
+                    ->label('Direção do fluxo')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'inicio_fim' => 'Início → fim',
+                        'fim_inicio' => 'Fim → início',
+                        default => 'Ambos os sentidos',
+                    }),
                 TextColumn::make('limite_velocidade')
                     ->label('Limite km/h')
                     ->numeric()

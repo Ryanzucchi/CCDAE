@@ -8,7 +8,7 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 export { maplibregl };
 
-const MARTIN_TILEJSON_VERSION = '20260810-2';
+const MARTIN_TILEJSON_VERSION = '20260827-1';
 const TERRAIN_SOURCE_ID = 'ccdae-terrain-dem';
 const HILLSHADE_LAYER_ID = 'ccdae-terrain-hillshade';
 

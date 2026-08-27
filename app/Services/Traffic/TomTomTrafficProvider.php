@@ -2,6 +2,8 @@
 
 namespace App\Services\Traffic;
 
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,6 +48,58 @@ class TomTomTrafficProvider
         }
 
         return $flow;
+    }
+
+    /**
+     * Fetches absolute and relative Vector Flow PBFs in bounded parallel batches.
+     *
+     * @param  array<int, array{id:int,zoom:int,x:int,y:int}>  $tiles
+     * @return array<int, array{absolute:?string,relative:?string,requests:int,successful:int,failed:int}>
+     */
+    public function vectorFlowTiles(array $tiles): array
+    {
+        if (! $this->available() || $tiles === []) {
+            return [];
+        }
+
+        $result = [];
+        foreach (array_chunk($tiles, 8) as $batch) {
+            $responses = Http::pool(function (Pool $pool) use ($batch): array {
+                $requests = [];
+                foreach ($batch as $tile) {
+                    foreach (['absolute', 'relative'] as $type) {
+                        $alias = $tile['id'].':'.$type;
+                        $url = "https://api.tomtom.com/traffic/map/4/tile/flow/{$type}/{$tile['zoom']}/{$tile['x']}/{$tile['y']}.pbf";
+                        $requests[] = $pool->as($alias)
+                            ->timeout(config('data_sources.traffic.timeout'))
+                            ->withHeaders(['Accept' => 'application/x-protobuf'])
+                            ->get($url, ['key' => config('data_sources.traffic.tomtom_key')]);
+                    }
+                }
+
+                return $requests;
+            });
+
+            foreach ($batch as $tile) {
+                $tileResult = ['absolute' => null, 'relative' => null, 'requests' => 2, 'successful' => 0, 'failed' => 0];
+                foreach (['absolute', 'relative'] as $type) {
+                    $response = $responses[$tile['id'].':'.$type] ?? null;
+                    if ($response instanceof Response && $response->successful()) {
+                        $tileResult[$type] = $response->body();
+                        $tileResult['successful']++;
+                    } else {
+                        $tileResult['failed']++;
+                        $status = $response instanceof Response ? $response->status() : null;
+                        if ($status === null || in_array($status, [401, 402, 403, 429], true)) {
+                            $this->openCircuit($status, $status === null ? 'provider_unreachable' : 'provider_rejected_request');
+                        }
+                    }
+                }
+                $result[$tile['id']] = $tileResult;
+            }
+        }
+
+        return $result;
     }
 
     public function available(): bool

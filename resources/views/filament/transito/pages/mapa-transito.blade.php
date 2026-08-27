@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     @vite('resources/js/maps/traffic-map.js')
-    <x-filament::section heading="Fluxo de trânsito urbano" description="Situação das vias e histórico das últimas 24 horas.">
+    <x-filament::section heading="Fluxo de trânsito urbano" description="Situação, direção do fluxo e histórico das vias nas últimas 24 horas.">
         <div wire:ignore class="ccdae-map-surface" style="height: 700px">
             <div id="transito-map-container" style="width:100%;height:100%"
                 data-payload='@json(['vias' => $this->vias, 'distritos' => $this->distritos], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP)'

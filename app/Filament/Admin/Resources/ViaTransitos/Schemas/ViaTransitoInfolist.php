@@ -22,6 +22,13 @@ class ViaTransitoInfolist
                 TextEntry::make('tipo')->placeholder('-'),
                 TextEntry::make('numero_faixas')->label('Faixas')->placeholder('-'),
                 TextEntry::make('sentido')->placeholder('-'),
+                TextEntry::make('direcao_fluxo')
+                    ->label('Direção do fluxo')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'inicio_fim' => 'Início → fim da geometria',
+                        'fim_inicio' => 'Fim → início da geometria',
+                        default => 'Ambos os sentidos',
+                    }),
                 TextEntry::make('limite_velocidade')->label('Limite (km/h)')->placeholder('-'),
                 TextEntry::make('estado_pavimento')->label('Pavimento')->placeholder('-'),
                 TextEntry::make('inclinacao_pista')->label('Inclinação (%)')->placeholder('Não informada'),

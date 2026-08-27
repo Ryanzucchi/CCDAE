@@ -37,7 +37,7 @@ services:
 
   queue:
     image: ccdae-app:local
-    command: sh -c "php artisan queue:work --sleep=3 --tries=3 --timeout=120 2>&1 | tee -a storage/logs/queue-worker.log"
+    command: sh -c "php artisan queue:work --sleep=3 --tries=2 --timeout=300 2>&1 | tee -a storage/logs/queue-worker.log"
     volumes:
       - ./:/var/www/html
       - ./storage:/var/www/html/storage

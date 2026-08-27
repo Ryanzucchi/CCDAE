@@ -7,7 +7,8 @@ class OsmRoadAttributeMapper
     public function map(array $tags): array
     {
         $highway = strtolower((string) ($tags['highway'] ?? 'residential'));
-        $oneWay = $this->isOneWay($tags);
+        $flowDirection = $this->flowDirection($tags);
+        $oneWay = $flowDirection !== 'ambos';
         $inferred = [];
 
         $lanes = $this->positiveInteger($tags['lanes'] ?? null);
@@ -42,6 +43,7 @@ class OsmRoadAttributeMapper
             'tipo' => $highway,
             'numero_faixas' => $lanes,
             'sentido' => $oneWay ? 'unica' : 'dupla',
+            'direcao_fluxo' => $flowDirection,
             'limite_velocidade' => $speedLimit,
             'estado_pavimento' => $surface,
             'inclinacao_pista' => $this->incline($tags['incline'] ?? null),
@@ -49,12 +51,24 @@ class OsmRoadAttributeMapper
         ];
     }
 
-    private function isOneWay(array $tags): bool
+    private function flowDirection(array $tags): string
     {
         $oneWay = strtolower((string) ($tags['oneway'] ?? ''));
 
-        return in_array($oneWay, ['yes', 'true', '1', '-1'], true)
-            || strtolower((string) ($tags['junction'] ?? '')) === 'roundabout';
+        if ($oneWay === '-1') {
+            return 'fim_inicio';
+        }
+
+        if (in_array($oneWay, ['no', 'false', '0'], true)) {
+            return 'ambos';
+        }
+
+        if (in_array($oneWay, ['yes', 'true', '1'], true)
+            || strtolower((string) ($tags['junction'] ?? '')) === 'roundabout') {
+            return 'inicio_fim';
+        }
+
+        return 'ambos';
     }
 
     private function positiveInteger(mixed $value): ?int

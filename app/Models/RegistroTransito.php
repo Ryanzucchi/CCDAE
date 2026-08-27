@@ -31,6 +31,8 @@ class RegistroTransito extends Model
         'timestamp',
         'veiculos_total',
         'velocidade_media',
+        'velocidade_fluxo_livre',
+        'razao_congestionamento',
         'velocidade_min',
         'velocidade_max',
         'tempo_medio_travessia',

@@ -21,6 +21,7 @@ class OsmRoadAttributeMapperTest extends TestCase
         $this->assertSame('primary', $attributes['tipo']);
         $this->assertSame(3, $attributes['numero_faixas']);
         $this->assertSame('unica', $attributes['sentido']);
+        $this->assertSame('inicio_fim', $attributes['direcao_fluxo']);
         $this->assertSame(60, $attributes['limite_velocidade']);
         $this->assertSame('asfalto', $attributes['estado_pavimento']);
         $this->assertSame(2.5, $attributes['inclinacao_pista']);
@@ -33,6 +34,7 @@ class OsmRoadAttributeMapperTest extends TestCase
 
         $this->assertSame(2, $attributes['numero_faixas']);
         $this->assertSame('dupla', $attributes['sentido']);
+        $this->assertSame('ambos', $attributes['direcao_fluxo']);
         $this->assertSame(30, $attributes['limite_velocidade']);
         $this->assertSame('desconhecido', $attributes['estado_pavimento']);
         $this->assertNull($attributes['inclinacao_pista']);
@@ -55,5 +57,28 @@ class OsmRoadAttributeMapperTest extends TestCase
         $this->assertSame(3, $attributes['numero_faixas']);
         $this->assertSame(48, $attributes['limite_velocidade']);
         $this->assertSame('ruim', $attributes['estado_pavimento']);
+    }
+
+    public function test_maps_reverse_oneway_flow_against_geometry_order(): void
+    {
+        $attributes = (new OsmRoadAttributeMapper)->map([
+            'highway' => 'residential',
+            'oneway' => '-1',
+        ]);
+
+        $this->assertSame('unica', $attributes['sentido']);
+        $this->assertSame('fim_inicio', $attributes['direcao_fluxo']);
+    }
+
+    public function test_explicit_two_way_tag_overrides_roundabout_default(): void
+    {
+        $attributes = (new OsmRoadAttributeMapper)->map([
+            'highway' => 'residential',
+            'junction' => 'roundabout',
+            'oneway' => 'no',
+        ]);
+
+        $this->assertSame('dupla', $attributes['sentido']);
+        $this->assertSame('ambos', $attributes['direcao_fluxo']);
     }
 }

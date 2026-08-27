@@ -20,7 +20,7 @@ class MapaTransito extends Page
 
     public function getViasProperty(): array
     {
-        return ViaTransito::query()->get(['id', 'nome', 'geojson', 'nivel_congestionamento', 'velocidade_media', 'impacto_manutencao'])->toArray();
+        return ViaTransito::query()->get(['id', 'nome', 'geojson', 'nivel_congestionamento', 'velocidade_media', 'impacto_manutencao', 'direcao_fluxo'])->toArray();
     }
 
     public function getDistritosProperty(): array

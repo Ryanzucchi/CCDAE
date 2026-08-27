@@ -14,6 +14,7 @@ const SOURCE_ID = 'ccdae-traffic';
 const MVT_SOURCE_ID = 'ccdae-traffic-mvt';
 const DISTRICT_LAYER_ID = 'ccdae-traffic-districts';
 const ROAD_LAYER_ID = 'ccdae-traffic-roads';
+const FLOW_DIRECTION_LAYER_ID = 'ccdae-traffic-flow-direction';
 let activeController = null;
 
 const TRAFFIC_COLORS = {
@@ -23,6 +24,47 @@ const TRAFFIC_COLORS = {
     parado: '#ef4444',
 };
 const TRAFFIC_LEVELS = ['livre', 'moderado', 'intenso', 'parado'];
+const FLOW_ARROW_IMAGE_ID = 'ccdae-traffic-flow-arrow';
+const BIDIRECTIONAL_ARROW_IMAGE_ID = 'ccdae-traffic-flow-bidirectional';
+
+function flowDirectionLabel(direction) {
+    return {
+        inicio_fim: 'Início → fim da via',
+        fim_inicio: 'Fim → início da via',
+        ambos: 'Ambos os sentidos',
+    }[direction] ?? 'Ambos os sentidos';
+}
+
+function createFlowArrowImage(bidirectional = false) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 48;
+    canvas.height = 24;
+    const context = canvas.getContext('2d');
+
+    const draw = (color, width) => {
+        context.strokeStyle = color;
+        context.lineWidth = width;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.beginPath();
+        context.moveTo(bidirectional ? 8 : 4, 12);
+        context.lineTo(bidirectional ? 40 : 42, 12);
+        context.moveTo(33, 4);
+        context.lineTo(43, 12);
+        context.lineTo(33, 20);
+        if (bidirectional) {
+            context.moveTo(15, 4);
+            context.lineTo(5, 12);
+            context.lineTo(15, 20);
+        }
+        context.stroke();
+    };
+
+    draw('#111827', 7);
+    draw('#ffffff', 3);
+
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+}
 
 function normalizeHistoryReading(reading) {
     if (!Array.isArray(reading)) return reading;
@@ -61,6 +103,7 @@ function buildFeatures(payload) {
                 name: String(road.nome ?? 'Via'),
                 congestion,
                 speed: road.velocidade_media ?? null,
+                flowDirection: String(road.direcao_fluxo ?? 'ambos'),
                 maintenanceImpact: String(road.impacto_manutencao ?? 'não informado'),
                 color: TRAFFIC_COLORS[congestion] ?? TRAFFIC_COLORS.livre,
             },
@@ -82,6 +125,7 @@ function popupContent(properties) {
     const rows = [
         ['Congestionamento', String(properties.congestion ?? 'livre').toUpperCase()],
         ['Velocidade média', properties.speed ? `${properties.speed} km/h` : 'Não informada'],
+        ['Direção do fluxo', flowDirectionLabel(properties.flowDirection)],
         ['Impacto logístico', String(properties.maintenanceImpact ?? 'não informado').toUpperCase()],
         ['Volume na hora', properties.vehicles !== undefined && properties.vehicles !== null ? `${properties.vehicles} veículos` : 'Não informado'],
         ['Ocorrências', `${Number(properties.accidents ?? 0)} acidente(s), ${Number(properties.works ?? 0)} obra(s)${properties.flooded ? ', alagamento' : ''}`],
@@ -130,6 +174,7 @@ class TrafficMapController {
                 { color: TRAFFIC_COLORS.moderado, label: 'Moderado', value: '20–40' },
                 { color: TRAFFIC_COLORS.intenso, label: 'Intenso', value: '10–20' },
                 { color: TRAFFIC_COLORS.parado, label: 'Parado', value: '< 10' },
+                { color: '#111827', label: '→ sentido único', value: '↔ mão dupla' },
             ],
         }), 'top-right');
         this.map.on('load', () => this.onLoad());
@@ -185,6 +230,31 @@ class TrafficMapController {
                 'line-opacity': 0.9,
             },
         });
+        this.map.addImage(FLOW_ARROW_IMAGE_ID, createFlowArrowImage(), { pixelRatio: 2 });
+        this.map.addImage(BIDIRECTIONAL_ARROW_IMAGE_ID, createFlowArrowImage(true), { pixelRatio: 2 });
+        this.map.addLayer({
+            id: FLOW_DIRECTION_LAYER_ID,
+            type: 'symbol',
+            source: this.martinEnabled ? MVT_SOURCE_ID : SOURCE_ID,
+            ...(this.martinEnabled ? { 'source-layer': 'vias' } : {}),
+            ...(initialRoadFilter ? { filter: initialRoadFilter } : {}),
+            layout: {
+                'symbol-placement': 'line',
+                'symbol-spacing': 85,
+                'icon-image': ['match',
+                    ['coalesce', ['get', this.martinEnabled ? 'direcao_fluxo' : 'flowDirection'], 'ambos'],
+                    'ambos', BIDIRECTIONAL_ARROW_IMAGE_ID,
+                    FLOW_ARROW_IMAGE_ID],
+                'icon-rotate': ['case',
+                    ['==', ['get', this.martinEnabled ? 'direcao_fluxo' : 'flowDirection'], 'fim_inicio'],
+                    180,
+                    0],
+                'icon-size': 0.8,
+                'icon-rotation-alignment': 'map',
+                'icon-keep-upright': false,
+                'icon-allow-overlap': true,
+            },
+        });
 
         let hoveredRoadId = null;
         this.map.on('mousemove', ROAD_LAYER_ID, (event) => {
@@ -228,7 +298,10 @@ class TrafficMapController {
     onUpdate(event) {
         const payload = event.detail?.[0] ?? event.detail ?? { vias: [], distritos: [] };
         this.districtId = payload.distrito_id || null;
-        if (this.loaded && this.martinEnabled) this.map.setFilter(ROAD_LAYER_ID, this.roadFilter());
+        if (this.loaded && this.martinEnabled) {
+            this.map.setFilter(ROAD_LAYER_ID, this.roadFilter());
+            this.map.setFilter(FLOW_DIRECTION_LAYER_ID, this.roadFilter());
+        }
         this.render(payload);
         this.stopPlayback();
         this.loadTimeline(this.districtId);
@@ -402,6 +475,7 @@ class TrafficMapController {
             name: properties.nome,
             congestion: properties.nivel_congestionamento,
             speed: properties.velocidade_media,
+            flowDirection: properties.direcao_fluxo ?? 'ambos',
             maintenanceImpact: 'não informado',
         } : properties;
         return {

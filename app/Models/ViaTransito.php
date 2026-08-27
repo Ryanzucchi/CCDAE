@@ -25,6 +25,7 @@ class ViaTransito extends Model
         'tipo',
         'numero_faixas',
         'sentido',
+        'direcao_fluxo',
         'limite_velocidade',
         'inclinacao_pista',
         'altura_maxima_permitida',

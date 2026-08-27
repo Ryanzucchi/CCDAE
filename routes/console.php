@@ -13,17 +13,20 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('climate:sanitize')->dailyAt('02:00');
 Schedule::command('internet:sync-antennas')->weeklyOn(1, '03:20')->withoutOverlapping();
 
-$intervalo = max(1, min(59, (int) env('COLETA_DADOS_INTERVALO', 20)));
+$intervaloClima = max(1, min(59, (int) env('COLETA_DADOS_INTERVALO', 20)));
+$intervaloTransito = max(1, (int) env('TRAFFIC_COLLECTION_INTERVAL_MINUTES', 40));
+$transitoDeveExecutar = fn (): bool => (((int) now()->format('G') * 60) + (int) now()->format('i')) % $intervaloTransito === 0;
 
 // Único ponto de agendamento das coletas. Evita despachos duplicados.
 Schedule::job(new CollectTrafficData)
-    ->cron("*/{$intervalo} * * * *")
+    ->everyMinute()
+    ->when($transitoDeveExecutar)
     ->name('collect-traffic-data')
     ->onOneServer()
     ->withoutOverlapping();
 
 Schedule::job(new CollectClimateData)
-    ->cron("*/{$intervalo} * * * *")
+    ->cron("*/{$intervaloClima} * * * *")
     ->name('collect-climate-data')
     ->onOneServer()
     ->withoutOverlapping();

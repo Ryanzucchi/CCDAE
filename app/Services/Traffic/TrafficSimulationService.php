@@ -23,10 +23,13 @@ class TrafficSimulationService
         $baseVolume = $isRushHour ? rand(500, 2000) : rand(50, 400);
         $veiculosTotal = $baseVolume * ($via->numero_faixas ?? 1);
         $origin = $realFlow ? 'misto' : 'simulado';
+        $freeFlow = null;
+        $congestionRatio = null;
 
         if ($realFlow) {
             $velMedia = (float) $realFlow['currentSpeed'];
             $freeFlow = max(1, (float) $realFlow['freeFlowSpeed']);
+            $congestionRatio = max(0, min(1, $velMedia / $freeFlow));
             $congestionFactor = (int) round(max(0, min(100, (1 - $velMedia / $freeFlow) * 100)));
             $velMin = $velMedia;
             $velMax = $freeFlow;
@@ -61,6 +64,8 @@ class TrafficSimulationService
             'timestamp' => $currentTime->toIso8601String(),
             'veiculos_total' => $veiculosTotal,
             'velocidade_media' => round($velMedia, 1),
+            'velocidade_fluxo_livre' => $freeFlow !== null ? round($freeFlow, 1) : null,
+            'razao_congestionamento' => $congestionRatio !== null ? round($congestionRatio, 5) : null,
             'velocidade_min' => round($velMin, 1),
             'velocidade_max' => round($velMax, 1),
             'tempo_medio_travessia' => round(($via->id % 5 + 1) * (100 / max(1, $velMedia)), 1),

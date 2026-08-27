@@ -34,6 +34,15 @@ class ViaTransitoForm
                     ->minValue(1),
                 Select::make('sentido')
                     ->options(['unica' => 'Mão única', 'dupla' => 'Mão dupla']),
+                Select::make('direcao_fluxo')
+                    ->label('Direção do fluxo')
+                    ->options([
+                        'inicio_fim' => 'Início → fim da geometria',
+                        'fim_inicio' => 'Fim → início da geometria',
+                        'ambos' => 'Ambos os sentidos',
+                    ])
+                    ->default('ambos')
+                    ->required(),
                 TextInput::make('limite_velocidade')
                     ->label('Limite de velocidade (km/h)')
                     ->numeric()

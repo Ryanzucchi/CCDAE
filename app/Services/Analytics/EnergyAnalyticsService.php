@@ -12,17 +12,32 @@ class EnergyAnalyticsService
 {
     public function __construct(private readonly PolygonSampler $polygons, private readonly FeatureCollectionFactory $collections) {}
 
-    public function build(): array
+    public function build(?string $only = null): array
     {
+        $types = $only !== null ? [$only] : ['densidade', 'consumo', 'populacao'];
+        $data = [];
+        if (in_array('densidade', $types, true)) {
+            $data['densidade'] = $this->density();
+        }
+
+        if (! array_intersect($types, ['consumo', 'populacao'])) {
+            return array_map($this->collections->normalized(...), $data);
+        }
+
         $districts = Distrito::query()->whereNotNull('geojson')->get(['id', 'nome', 'geojson', 'latitude', 'longitude', 'populacao', 'consumo_medio_kwh']);
         $posts = DB::table('postes')->selectRaw('distrito_id, count(*) total')->groupBy('distrito_id')->pluck('total', 'distrito_id');
         $cables = DB::table('cabeamentos')->whereIn('tipo_cabo', ['eletrico_baixa_tensao', 'eletrico_alta_tensao'])->selectRaw('distrito_id, count(*) total')->groupBy('distrito_id')->pluck('total', 'distrito_id');
-        $data = ['densidade' => $this->density(), 'consumo' => [], 'populacao' => []];
+        foreach (array_intersect($types, ['consumo', 'populacao']) as $type) {
+            $data[$type] = [];
+        }
         foreach ($districts as $district) {
             $samples = $this->polygons->sample($district->geojson, (float) $district->longitude, (float) $district->latitude);
             $population = (float) ($district->populacao ?? 0);
             $consumption = $district->consumo_medio_kwh !== null ? (float) $district->consumo_medio_kwh : $population * .18;
             foreach (['consumo' => $consumption, 'populacao' => $population] as $type => $value) {
+                if (! in_array($type, $types, true)) {
+                    continue;
+                }
                 foreach ($samples as $index => $coordinates) {
                     $data[$type][] = ['type' => 'Feature', 'geometry' => ['type' => 'Point', 'coordinates' => $coordinates], 'properties' => [
                         'districtId' => $district->id, 'name' => $district->nome, 'value' => $value, 'sample' => $index + 1, 'samples' => count($samples),

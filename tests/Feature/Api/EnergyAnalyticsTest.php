@@ -39,4 +39,20 @@ class EnergyAnalyticsTest extends TestCase
         $this->assertSame(2, $response->json('densidade.features.0.properties.value'));
         $this->assertSame('pole-density-grid', $response->json('densidade.features.0.properties.spatialModel'));
     }
+
+    public function test_energy_analytics_can_return_only_population(): void
+    {
+        $user = User::factory()->create();
+        Distrito::query()->create([
+            'nome' => 'Centro', 'cidade' => 'Cáceres', 'latitude' => -16.07, 'longitude' => -57.68,
+            'populacao' => 1000, 'geojson' => ['type' => 'Polygon', 'coordinates' => [[[-57.69, -16.08], [-57.67, -16.08], [-57.67, -16.06], [-57.69, -16.08]]]],
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/api/energia/analiticos?tipo=populacao');
+
+        $response->assertOk()
+            ->assertJsonPath('populacao.features.0.properties.value', 1000)
+            ->assertJsonMissingPath('densidade')
+            ->assertJsonMissingPath('consumo');
+    }
 }

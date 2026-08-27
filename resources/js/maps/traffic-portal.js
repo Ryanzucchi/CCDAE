@@ -55,7 +55,10 @@ function heightScale(value) {
 async function loadIntensityData(type, start, end, endpoint = '/api/transito/intensidade') {
     const cacheKey = `${endpoint}:${type}:${start}:${end}`;
     if (intensityData.has(cacheKey)) return intensityData.get(cacheKey);
-    const query = endpoint.includes('/transito/') ? `?${new URLSearchParams({ tipo: type, inicio: start, fim: end })}` : '';
+    const params = endpoint.includes('/transito/')
+        ? { tipo: type, inicio: start, fim: end }
+        : { tipo: type };
+    const query = `?${new URLSearchParams(params)}`;
     const response = await fetch(`${endpoint}${query}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
@@ -127,7 +130,7 @@ function buildWaveSurface(data, type, definition) {
         }
     }
     for (let row = 0; row < divisions; row++) {
-        for (let column = 0; column <= divisions; column++) {
+        for (let column = 0; column < divisions; column++) {
             const a = row * (divisions + 1) + column;
             const b = a + 1;
             const c = a + divisions + 1;
@@ -345,7 +348,7 @@ async function initializeIntensityMap(container) {
     const endpoint = internetMap ? '/api/internet/analiticos' : (energyMap ? '/api/energia/analiticos' : '/api/transito/intensidade');
     const definition = DEFINITIONS[type];
     if (!definition) return null;
-    const status = container.parentElement?.querySelector('[data-traffic-wave-status]');
+    const status = container.parentElement?.querySelector('[data-traffic-wave-status], [data-energy-status], [data-internet-status]');
     const map = createMap(container, { center: [-57.6875, -16.07083], zoom: 12 });
     const pageQuery = new URLSearchParams(window.location.search);
     const toLocalInput = (date) => {

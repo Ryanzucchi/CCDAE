@@ -10,6 +10,7 @@ services:
       - ./storage:/var/www/html/storage
       - ./storage/app/public:/var/www/html/public/storage
       - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
+      - ../geoveil:/var/www/packages/geoveil
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +43,7 @@ services:
       - ./:/var/www/html
       - ./storage:/var/www/html/storage
       - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
+      - ../geoveil:/var/www/packages/geoveil
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
       - ./:/var/www/html
       - ./storage:/var/www/html/storage
       - ./docker/php.ini:/usr/local/etc/php/conf.d/docker-php.ini
+      - ../geoveil:/var/www/packages/geoveil
     depends_on:
       postgres:
         condition: service_healthy

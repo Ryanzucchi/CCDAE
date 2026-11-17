@@ -32,6 +32,7 @@ export default defineConfig({
                 'resources/js/maps/energy-infrastructure-map.js',
                 'resources/js/maps/internet-maps.js',
                 'resources/js/maps/internet-infrastructure-map.js',
+                'resources/js/vendor/geoveil/index.js',
             ],
             refresh: true,
         }),
